@@ -1,0 +1,25 @@
+name: Daily Paper Search
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # 毎日 UTC 00:00 = 日本時間 09:00
+  workflow_dispatch:        # 手動実行ボタンも有効化
+
+jobs:
+  search-and-notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 論文検索 & Slack 投稿
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python search_and_notify.py
