@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 # ── 設定 ────────────────────────────────────────────────
 KEYWORDS      = ["spatial navigation"]   # 検索キーワード
-MAX_RESULTS   = 5                        # 1ソースあたりの最大件数
+MAX_RESULTS   = 2                        # 1ソースあたりの最大件数
 DAYS_BACK     = 1                        # 何日前までの論文を対象にするか
 SLACK_WEBHOOK = os.environ["SLACK_WEBHOOK_URL"]
 # ────────────────────────────────────────────────────────
