@@ -74,20 +74,26 @@ def fetch_biorxiv(keywords: list[str], days_back: int, max_results: int) -> list
     """bioRxiv から論文を取得する"""
     since = (datetime.utcnow() - timedelta(days=days_back)).strftime("%Y-%m-%d")
     today = datetime.utcnow().strftime("%Y-%m-%d")
-    query = "+".join(urllib.parse.quote(kw) for kw in keywords)
 
-    url = f"https://api.biorxiv.org/details/biorxiv/{since}/{today}/0/{max_results}/json"
-    with urllib.request.urlopen(url, timeout=15) as resp:
-        data = json.loads(resp.read())
+    # 正しいAPI形式: /details/biorxiv/YYYY-MM-DD/YYYY-MM-DD/cursor/json
+    url = f"https://api.biorxiv.org/details/biorxiv/{since}/{today}/0/json"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+    except Exception as e:
+        print(f"⚠️ bioRxiv API エラー: {e}")
+        return []
 
     papers = []
     for item in data.get("collection", []):
-        if any(kw.lower() in (item.get("title","") + item.get("abstract","")).lower()
-               for kw in keywords):
+        text = (item.get("title", "") + " " + item.get("abstract", "")).lower()
+        if any(kw.lower() in text for kw in keywords):
+            doi = item.get("doi", "")
             papers.append({
                 "title":    item.get("title", "No title"),
                 "abstract": item.get("abstract", ""),
-                "url":      f"https://www.biorxiv.org/content/{item.get('doi')}",
+                "url":      f"https://www.biorxiv.org/content/{doi}",
                 "source":   "bioRxiv",
             })
     return papers[:max_results]
