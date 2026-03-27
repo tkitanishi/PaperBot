@@ -105,7 +105,7 @@ def summarize_with_claude(title: str, abstract: str) -> str:
         return "（アブストラクトなし）"
 
     payload = json.dumps({
-        "model": "claude-sonnet-4-20250514",
+        "model": "claude-sonnet-4-6",
         "max_tokens": 300,
         "messages": [{
             "role": "user",
