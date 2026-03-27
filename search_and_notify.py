@@ -126,9 +126,14 @@ def summarize_with_claude(title: str, abstract: str) -> str:
             "anthropic-version": "2023-06-01",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        result = json.loads(resp.read())
-    return result["content"][0]["text"].strip()
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read())
+        return result["content"][0]["text"].strip()
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"❌ Claude API エラー {e.code}: {body}")
+        raise
 
 
 def post_to_slack(papers: list[dict]) -> None:
