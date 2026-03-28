@@ -28,7 +28,7 @@ MAX_SEEN           = 5000
 
 TARGET_JOURNALS = [
     "Nature", "Science", "Cell",
-    "Nature Neuroscience", "Nature Human Behaviour", "Nature Communications",
+    "Nature Neuroscience", "Nature Human Behaviour", "Nature Medicine", "Nature Communications", 
     "Neuron", "Current Biology", "eLife",
     "PNAS", "Journal of Neuroscience",
     "Cell Reports", "Science Advances",
@@ -325,7 +325,7 @@ def main():
     print(f"既出論文: {len(seen)} 件")
 
     # ── 日曜モード: Altmetric 注目論文 ──────────────────
-    if True: #is_sunday():
+    if False: #is_sunday():
         print("🌟 日曜インパクトモード")
         papers = fetch_impact_papers(seen)
 
