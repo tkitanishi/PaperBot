@@ -196,7 +196,7 @@ def fetch_biorxiv(keywords, days_back, max_results):
     return papers[:max_results]
 
 
-def get_altmetric_score(pmid):
+def get_citation_count(pmid):
     """Altmetric APIでスコアを取得する（失敗時は0）"""
     try:
         url = f"https://api.altmetric.com/v1/pmid/{pmid}"
@@ -339,7 +339,7 @@ def main():
     print(f"既出論文: {len(seen)} 件")
 
     # ── 日曜モード: Altmetric 注目論文 ──────────────────
-    if True:# is_sunday():
+    if is_sunday():
         print("🌟 日曜インパクトモード")
         papers = fetch_impact_papers(seen)
 
