@@ -1,14 +1,26 @@
 [
   {
-    "name": "田中",
-    "keywords": ["spatial navigation", "place cell"]
+    "name": "北西",
+    "slack_id": "U0410M9E1BN",
+    "keywords": [
+      "spatial navigation",
+      "place cell"
+    ]
   },
   {
     "name": "鈴木",
-    "keywords": ["working memory", "prefrontal cortex"]
+    "slack_id": "U02XXXXXXX",
+    "keywords": [
+      "working memory",
+      "prefrontal cortex"
+    ]
   },
   {
     "name": "佐藤",
-    "keywords": ["hippocampus", "memory consolidation"]
+    "slack_id": "U03XXXXXXX",
+    "keywords": [
+      "hippocampus",
+      "memory consolidation"
+    ]
   }
 ]
