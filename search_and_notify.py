@@ -47,8 +47,14 @@ def load_members():
 
 
 def select_member(members):
-    day_index = (datetime.utcnow() - datetime(2025, 1, 1)).days
-    member = members[day_index % len(members)]
+    """日曜日を除いた日数でローテーションする"""
+    base = datetime(2025, 1, 1)
+    today = datetime.utcnow()
+    non_sunday_count = sum(
+        1 for i in range((today - base).days)
+        if (base + timedelta(days=i)).weekday() != 6
+    )
+    member = members[non_sunday_count % len(members)]
     print(f"本日の担当: {member['name']} (キーワード: {', '.join(member['keywords'])})")
     return member
 
@@ -199,12 +205,10 @@ def get_altmetric_score(pmid):
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
         score = data.get("score", 0)
-        time.sleep(0.5)  # レートリミット対策
+        time.sleep(0.5)
         return float(score)
     except urllib.error.HTTPError as e:
-        if e.code == 404:
-            pass  # Altmetricに未登録（よくある）
-        else:
+        if e.code != 404:
             print(f"  Altmetric HTTPエラー {e.code} (pmid={pmid})")
         return 0.0
     except Exception as e:
@@ -337,7 +341,7 @@ def main():
     print(f"既出論文: {len(seen)} 件")
 
     # ── 日曜モード: Altmetric 注目論文 ──────────────────
-    if True: #is_sunday():
+    if True:#is_sunday():
         print("🌟 日曜インパクトモード")
         papers = fetch_impact_papers(seen)
 
@@ -377,7 +381,7 @@ def main():
             print("本日は新着論文なし")
             keyword_str = ", ".join(keywords)
             post_no_papers_to_slack(
-                f"📭 {today} 新着論文なし（担当: {f'<@{member["slack_id"]}>' if member.get('slack_id') else member['name']} / キーワード: {keyword_str}）"
+                "📭 " + today + " 新着論文なし（担当: " + (f"<@{member['slack_id']}>" if member.get('slack_id') else member['name']) + " / キーワード: " + keyword_str + "）"
             )
             return
 
@@ -392,7 +396,7 @@ def main():
 
         post_to_slack(
             f"📄 論文アップデート {today}",
-            f"For {member['name']} {f'<@{member["slack_id"]}>' if member.get('slack_id') else ''}　Keywords: {' / '.join(keywords)}",
+            "For " + member['name'] + " " + (f"<@{member['slack_id']}>" if member.get('slack_id') else "") + "　Keywords: " + ' / '.join(keywords),
             best,
         )
 
