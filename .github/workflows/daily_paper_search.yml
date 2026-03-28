@@ -21,4 +21,5 @@ jobs:
       - name: 論文検索 & Slack 投稿
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python search_and_notify.py
