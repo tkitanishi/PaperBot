@@ -228,7 +228,7 @@ def post_to_slack(member, paper):
     blocks = [
         {"type": "header", "text": {"type": "plain_text", "text": f"📄 論文アップデート {today}"}},
         {"type": "section", "text": {"type": "mrkdwn",
-            "text": f"To: *{member['name']}*　キーワード: {keyword_str}"}},
+            "text": f"担当: <@{member['slack_id']}> ({member['name']})　キーワード: {keyword_str}"}},
         {"type": "divider"},
         {"type": "section", "text": {"type": "mrkdwn",
             "text": (
@@ -252,7 +252,7 @@ def post_no_papers_to_slack(member):
     today = datetime.utcnow().strftime("%Y-%m-%d")
     keyword_str = ", ".join(member["keywords"])
     payload = json.dumps({
-        "text": f"📭 {today} 新着論文なし（担当: {member['name']} / キーワード: {keyword_str}）"
+        "text": f"📭 {today} 新着論文なし（担当: <@{member['slack_id']}> / キーワード: {keyword_str}）"
     }).encode()
     req = urllib.request.Request(
         SLACK_WEBHOOK, data=payload,
