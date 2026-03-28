@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 # ── 設定 ────────────────────────────────────────────────
 KEYWORDS       = ["spatial navigation"]
-MAX_RESULTS    = 5
+MAX_RESULTS    = 1
 DAYS_BACK      = 1
 SLACK_WEBHOOK  = os.environ["SLACK_WEBHOOK_URL"]
 ANTHROPIC_KEY  = os.environ["ANTHROPIC_API_KEY"]
