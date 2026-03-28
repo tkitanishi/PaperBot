@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 # ── 設定 ────────────────────────────────────────────────
 KEYWORDS       = ["spatial navigation"]
-MAX_RESULTS    = 1
+MAX_RESULTS    = 10
 DAYS_BACK      = 1
 SLACK_WEBHOOK  = os.environ["SLACK_WEBHOOK_URL"]
 ANTHROPIC_KEY  = os.environ["ANTHROPIC_API_KEY"]
@@ -138,6 +138,56 @@ def fetch_biorxiv(keywords, days_back, max_results):
     return papers[:max_results]
 
 
+def select_best_paper(papers, keywords):
+    """Claude に最も重要な論文を1本選ばせる"""
+    paper_list = "
+".join(
+        f"{i+1}. タイトル: {p['title']}
+   アブストラクト: {p['abstract'][:300]}..."
+        for i, p in enumerate(papers)
+    )
+
+    payload = json.dumps({
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 50,
+        "messages": [{
+            "role": "user",
+            "content": (
+                f"以下の論文リストから、'{' / '.join(keywords)}' の研究者にとって"
+                "最も重要・新規性が高い論文を1本選んでください。"
+                "番号だけを答えてください（例: 3）。
+
+"
+                f"{paper_list}"
+            ),
+        }],
+    }).encode()
+
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=payload,
+        headers={
+            "Content-Type":      "application/json",
+            "x-api-key":         ANTHROPIC_KEY,
+            "anthropic-version": "2023-06-01",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read())
+        answer = result["content"][0]["text"].strip()
+        # 数字だけ抽出
+        import re
+        m = re.search(r'\d+', answer)
+        idx = int(m.group()) - 1 if m else 0
+        idx = max(0, min(idx, len(papers) - 1))
+        print(f"Claude が選んだ論文: {idx+1}番 「{papers[idx]['title'][:60]}...」")
+        return papers[idx]
+    except Exception as e:
+        print(f"選択エラー: {e} → 1番を使用")
+        return papers[0]
+
+
 def summarize_with_claude(title, abstract):
     if not abstract:
         return "（アブストラクトなし）"
@@ -232,14 +282,17 @@ def main():
         print("本日は新着論文なし")
         return
 
+    # 最重要論文を1本選ぶ
+    print(f"{len(new_papers)} 件から最重要論文を選択中...")
+    best = select_best_paper(new_papers, KEYWORDS)
+
+    # 選んだ論文を要約
     print("要約中...")
-    for p in new_papers:
-        p["summary"] = summarize_with_claude(p["title"], p["abstract"])
-        print(f"  完了: {p['title'][:60]}...")
+    best["summary"] = summarize_with_claude(best["title"], best["abstract"])
 
-    post_to_slack(new_papers)
+    post_to_slack([best])
 
-    # 投稿済みIDを保存
+    # 投稿済みIDを保存（選ばれなかった論文も既出扱いにする）
     seen.update(p["id"] for p in new_papers)
     save_seen(seen)
     print(f"seen_papers.json を更新しました（合計 {len(seen)} 件）")
