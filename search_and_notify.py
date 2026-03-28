@@ -139,8 +139,12 @@ def summarize_with_gemini(title, abstract):
         with urllib.request.urlopen(req, timeout=30) as resp:
             result = json.loads(resp.read())
         return result["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"Gemini API HTTPエラー {e.code}: {body}")
+        return "（要約失敗）"
     except Exception as e:
-        print(f"Gemini API エラー: {e}")
+        print(f"Gemini API エラー: {type(e).__name__}: {e}")
         return "（要約失敗）"
 
 
