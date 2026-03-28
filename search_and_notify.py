@@ -19,7 +19,7 @@ MAX_RESULTS   = 5
 DAYS_BACK     = 1
 SLACK_WEBHOOK = os.environ["SLACK_WEBHOOK_URL"]
 HF_KEY        = os.environ["HF_API_KEY"]
-HF_MODEL      = "mistralai/Mistral-7B-Instruct-v0.2"
+HF_MODEL      = "meta-llama/Llama-3.2-3B-Instruct"
 # ────────────────────────────────────────────────────────
 
 
@@ -103,16 +103,18 @@ def summarize_with_hf(title, abstract):
         return "（アブストラクトなし）"
 
     prompt = (
-        f"<s>[INST] Summarize the following paper in Japanese in 3 sentences for a spatial navigation researcher. "
-        f"Keep technical terms as-is.\n\nTitle: {title}\n\nAbstract: {abstract} [/INST]"
+        "以下の論文を、空間ナビゲーション・認知地図の研究者向けに"
+        "日本語で3文以内で要約してください。専門用語はそのまま使ってください。\n\n"
+        f"タイトル: {title}\n\nアブストラクト: {abstract}"
     )
 
     payload = json.dumps({
-        "inputs": prompt,
-        "parameters": {"max_new_tokens": 300, "return_full_text": False},
+        "model": HF_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 300,
     }).encode()
 
-    url = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL}"
+    url = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL}/v1/chat/completions"
     req = urllib.request.Request(
         url, data=payload,
         headers={
@@ -123,9 +125,7 @@ def summarize_with_hf(title, abstract):
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
             result = json.loads(resp.read())
-        if isinstance(result, list):
-            return result[0].get("generated_text", "（要約失敗）").strip()
-        return str(result)
+        return result["choices"][0]["message"]["content"].strip()
     except urllib.error.HTTPError as e:
         body = e.read().decode()
         print(f"HF API エラー {e.code}: {body}")
