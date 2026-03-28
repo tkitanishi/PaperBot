@@ -20,7 +20,7 @@ MAX_RESULTS   = 10
 DAYS_BACK     = 365
 SLACK_WEBHOOK = os.environ["SLACK_WEBHOOK_URL"]
 ANTHROPIC_KEY = os.environ["ANTHROPIC_API_KEY"]
-MEMBERS_FILE  = "members.json"
+MEMBERS_FILE  = "docs/members.json"
 SEEN_FILE     = "seen_papers.json"
 MAX_SEEN      = 5000
 
@@ -228,7 +228,7 @@ def post_to_slack(member, paper):
     blocks = [
         {"type": "header", "text": {"type": "plain_text", "text": f"📄 論文アップデート {today}"}},
         {"type": "section", "text": {"type": "mrkdwn",
-            "text": f"For: {member['name']} <@{member['slack_id']}>　Keywords: {keyword_str}"}},
+            "text": f"担当: <@{member['slack_id']}> ({member['name']})　キーワード: {keyword_str}"}},
         {"type": "divider"},
         {"type": "section", "text": {"type": "mrkdwn",
             "text": (
