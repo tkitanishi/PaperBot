@@ -1,7 +1,7 @@
 """
 論文検索 & Slack通知スクリプト
-- PubMed をジャーナル指定で検索（クエリレベルでフィルタ）
-- bioRxiv から検索
+- members.json からメンバーを日替わりで選択
+- PubMed（ターゲットジャーナル限定）/ bioRxiv を検索
 - Claude Haiku で最重要論文を1本選択・日本語要約
 - Slack に投稿した論文だけ seen_papers.json に記録
 """
@@ -16,13 +16,13 @@ from datetime import datetime, timedelta
 
 
 # ── 設定 ────────────────────────────────────────────────
-KEYWORDS    = ["spatial navigation"]
-MAX_RESULTS = 10
-DAYS_BACK   = 365
+MAX_RESULTS   = 10
+DAYS_BACK     = 365
 SLACK_WEBHOOK = os.environ["SLACK_WEBHOOK_URL"]
 ANTHROPIC_KEY = os.environ["ANTHROPIC_API_KEY"]
-SEEN_FILE   = "seen_papers.json"
-MAX_SEEN    = 2000
+MEMBERS_FILE  = "members.json"
+SEEN_FILE     = "seen_papers.json"
+MAX_SEEN      = 5000
 
 TARGET_JOURNALS = [
     "Nature", "Science", "Cell",
@@ -33,6 +33,19 @@ TARGET_JOURNALS = [
     "Nature Methods", "Nature Aging", "Nature Biotechnology",
 ]
 # ────────────────────────────────────────────────────────
+
+
+def load_members():
+    with open(MEMBERS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def select_member(members):
+    """日付ベースで今日担当のメンバーを選ぶ"""
+    day_index = (datetime.utcnow() - datetime(2025, 1, 1)).days
+    member = members[day_index % len(members)]
+    print(f"本日の担当: {member['name']} (キーワード: {', '.join(member['keywords'])})")
+    return member
 
 
 def load_seen():
@@ -53,17 +66,10 @@ def save_seen(seen):
 
 def fetch_pubmed(keywords, days_back, max_results):
     since = (datetime.utcnow() - timedelta(days=days_back)).strftime("%Y/%m/%d")
-
-    # キーワード条件
-    kw_query = " AND ".join(f'"{kw}"' for kw in keywords)
-
-    # ジャーナル条件（OR でつなぐ）
+    kw_query      = " AND ".join(f'"{kw}"' for kw in keywords)
     journal_query = " OR ".join(f'"{j}"[Journal]' for j in TARGET_JOURNALS)
-
-    # 日付条件
-    date_query = f'"{since}"[Date - Publication] : "3000"[Date - Publication]'
-
-    full_query = f"({kw_query}) AND ({journal_query}) AND ({date_query})"
+    date_query    = f'"{since}"[Date - Publication] : "3000"[Date - Publication]'
+    full_query    = f"({kw_query}) AND ({journal_query}) AND ({date_query})"
 
     search_params = urllib.parse.urlencode({
         "db": "pubmed", "term": full_query,
@@ -105,11 +111,11 @@ def fetch_pubmed(keywords, days_back, max_results):
         pmid = pmid_el.text if pmid_el is not None else ""
         papers.append({
             "id":       f"pubmed_{pmid}",
-            "title":    title_el.text   if title_el   is not None else "No title",
+            "title":    title_el.text    if title_el   is not None else "No title",
             "authors":  author_str,
-            "journal":  journal_el.text if journal_el is not None else "",
-            "year":     year_el.text[:4] if year_el   is not None else "",
-            "abstract": abs_el.text     if abs_el     is not None else "",
+            "journal":  journal_el.text  if journal_el is not None else "",
+            "year":     year_el.text[:4] if year_el    is not None else "",
+            "abstract": abs_el.text      if abs_el     is not None else "",
             "url":      f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
             "source":   "PubMed",
         })
@@ -173,13 +179,12 @@ def select_best_paper(papers, keywords):
     for i, p in enumerate(papers):
         snippet = p["abstract"][:300].replace("\n", " ")
         lines.append(f"{i+1}. {p['title']} / {snippet}...")
-    paper_list = "\n".join(lines)
     keyword_str = " / ".join(keywords)
     prompt = (
         f"以下の論文リストから、'{keyword_str}' の研究者にとって"
         "最も重要・新規性が高い論文を1本選んでください。"
         "番号だけを答えてください（例: 3）。\n\n"
-        + paper_list
+        + "\n".join(lines)
     )
     try:
         answer = call_claude(prompt, max_tokens=10)
@@ -193,11 +198,12 @@ def select_best_paper(papers, keywords):
         return papers[0]
 
 
-def summarize_with_claude(title, abstract):
+def summarize_with_claude(title, abstract, keywords):
     if not abstract:
         return "（アブストラクトなし）"
+    keyword_str = " / ".join(keywords)
     prompt = (
-        "以下の論文を、空間ナビゲーション・認知地図の研究者向けに"
+        f"以下の論文を、'{keyword_str}' を研究するニューロサイエンス研究者向けに"
         "日本語で3文以内で要約してください。専門用語はそのまま使ってください。\n\n"
         f"タイトル: {title}\n\nアブストラクト: {abstract}"
     )
@@ -208,33 +214,29 @@ def summarize_with_claude(title, abstract):
         return "（要約失敗）"
 
 
-def post_to_slack(papers):
+def post_to_slack(member, paper):
     today = datetime.utcnow().strftime("%Y-%m-%d")
-    keyword_str = " / ".join(KEYWORDS)
+    keyword_str = " / ".join(member["keywords"])
+    author_line = f"\n_{paper['authors']}_" if paper.get("authors") else ""
+    meta = []
+    if paper.get("journal"):
+        meta.append(paper["journal"])
+    if paper.get("year"):
+        meta.append(paper["year"])
+    meta_line = f"\n`{'  |  '.join(meta)}`" if meta else f"\n`{paper['source']}`"
+
     blocks = [
         {"type": "header", "text": {"type": "plain_text", "text": f"📄 論文アップデート {today}"}},
-        {"type": "section", "text": {"type": "mrkdwn", "text": f"キーワード: *{keyword_str}*"}},
+        {"type": "section", "text": {"type": "mrkdwn",
+            "text": f"To: *{member['name']}*　キーワード: {keyword_str}"}},
+        {"type": "divider"},
+        {"type": "section", "text": {"type": "mrkdwn",
+            "text": (
+                f"*<{paper['url']}|{paper['title']}>*{author_line}"
+                f"{meta_line}\n{paper.get('summary', '')}"
+            )}},
         {"type": "divider"},
     ]
-    for i, p in enumerate(papers, 1):
-        author_line = f"\n_{p['authors']}_" if p.get("authors") else ""
-        meta = []
-        if p.get("journal"):
-            meta.append(p["journal"])
-        if p.get("year"):
-            meta.append(p["year"])
-        meta_line = f"\n`{'  |  '.join(meta)}`" if meta else f"\n`{p['source']}`"
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": (
-                    f"*{i}. <{p['url']}|{p['title']}>*{author_line}"
-                    f"{meta_line}\n{p.get('summary', '')}"
-                ),
-            },
-        })
-        blocks.append({"type": "divider"})
 
     payload = json.dumps({"blocks": blocks}).encode()
     req = urllib.request.Request(
@@ -246,35 +248,48 @@ def post_to_slack(papers):
     print("Slack に投稿しました")
 
 
+def post_no_papers_to_slack(member):
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    keyword_str = ", ".join(member["keywords"])
+    payload = json.dumps({
+        "text": f"📭 {today} 新着論文なし（担当: {member['name']} / キーワード: {keyword_str}）"
+    }).encode()
+    req = urllib.request.Request(
+        SLACK_WEBHOOK, data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        resp.read()
+
+
 def main():
+    members = load_members()
+    member  = select_member(members)
+    keywords = member["keywords"]
+
     seen = load_seen()
     print(f"既出論文: {len(seen)} 件")
 
     print("論文を検索中...")
-    candidates = fetch_pubmed(KEYWORDS, DAYS_BACK, MAX_RESULTS)
-    candidates += fetch_biorxiv(KEYWORDS, DAYS_BACK, MAX_RESULTS)
+    candidates  = fetch_pubmed(keywords, DAYS_BACK, MAX_RESULTS)
+    candidates += fetch_biorxiv(keywords, DAYS_BACK, MAX_RESULTS)
 
     new_papers = [p for p in candidates if p["id"] not in seen]
     print(f"新着: {len(new_papers)} 件（既出 {len(candidates) - len(new_papers)} 件をスキップ）")
 
     if not new_papers:
         print("本日は新着論文なし")
-        today = datetime.utcnow().strftime("%Y-%m-%d")
-        payload = json.dumps({"text": f"📭 {today} 本日は新着論文なし（キーワード: {', '.join(KEYWORDS)}）"}).encode()
-        req = urllib.request.Request(SLACK_WEBHOOK, data=payload, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            resp.read()
+        post_no_papers_to_slack(member)
         return
 
     print(f"{len(new_papers)} 件から最重要論文を選択中...")
-    best = select_best_paper(new_papers, KEYWORDS)
+    best = select_best_paper(new_papers, keywords)
 
     print("要約中...")
-    best["summary"] = summarize_with_claude(best["title"], best["abstract"])
+    best["summary"] = summarize_with_claude(best["title"], best["abstract"], keywords)
 
-    post_to_slack([best])
+    post_to_slack(member, best)
 
-    # 投稿した論文だけ記録
     seen.add(best["id"])
     save_seen(seen)
     print(f"seen_papers.json を更新しました（合計 {len(seen)} 件）")
