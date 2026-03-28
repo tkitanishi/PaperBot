@@ -3,377 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PaperBot - Keyword setting</title>
+<title>論文Bot — キーワード設定</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f7f6f3;
-    --surface: #ffffff;
-    --border: #e8e6e0;
-    --border-strong: #d0cdc5;
-    --text: #1a1916;
-    --text-muted: #7a7870;
-    --text-hint: #b0ada6;
-    --accent: #2d5a3d;
-    --accent-light: #eaf2ec;
-    --accent-text: #1e3f2b;
-    --tag-bg: #f0ede8;
-    --tag-border: #dedad4;
-    --danger: #b94040;
-    --danger-light: #fdf0f0;
-    --radius: 10px;
-    --radius-sm: 6px;
-    --radius-pill: 100px;
+    --bg:#f7f6f3;--surface:#fff;--border:#e8e6e0;--border-strong:#d0cdc5;
+    --text:#1a1916;--text-muted:#7a7870;--text-hint:#b0ada6;
+    --accent:#2d5a3d;--accent-light:#eaf2ec;--accent-text:#1e3f2b;
+    --tag-bg:#f0ede8;--tag-border:#dedad4;
+    --danger:#b94040;--danger-light:#fdf0f0;
+    --radius:10px;--radius-sm:6px;--radius-pill:100px;
   }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 2rem 1rem 4rem;
-  }
-
-  .container {
-    max-width: 680px;
-    margin: 0 auto;
-  }
-
-  header {
-    margin-bottom: 2.5rem;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 6px;
-  }
-
-  .logo-mark {
-    width: 32px;
-    height: 32px;
-    background: var(--accent);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 16px;
-  }
-
-  h1 {
-    font-size: 20px;
-    font-weight: 500;
-    letter-spacing: -0.02em;
-  }
-
-  .subtitle {
-    font-size: 13px;
-    color: var(--text-muted);
-    line-height: 1.5;
-  }
-
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1.25rem;
-    margin-bottom: 10px;
-    transition: border-color 0.15s;
-  }
-
-  .card:focus-within {
-    border-color: var(--border-strong);
-  }
-
-  .card-top {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
-  }
-
-  .avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: var(--accent-light);
-    color: var(--accent-text);
-    font-size: 13px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    letter-spacing: 0.02em;
-  }
-
-  .fields {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-
-  .field-label {
-    font-size: 10px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-hint);
-    margin-bottom: 3px;
-  }
-
-  input[type="text"] {
-    width: 100%;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    color: var(--text);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 6px 10px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-
-  input[type="text"]:focus {
-    border-color: var(--border-strong);
-    background: white;
-  }
-
-  input[type="text"]::placeholder {
-    color: var(--text-hint);
-  }
-
-  .slack-input {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-  }
-
-  .remove-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-hint);
-    font-size: 18px;
-    line-height: 1;
-    padding: 4px;
-    border-radius: 4px;
-    transition: color 0.15s, background 0.15s;
-    flex-shrink: 0;
-  }
-
-  .remove-btn:hover {
-    color: var(--danger);
-    background: var(--danger-light);
-  }
-
-  .kw-section {}
-
-  .kw-label {
-    font-size: 10px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-hint);
-    margin-bottom: 8px;
-  }
-
-  .kw-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 8px;
-    min-height: 28px;
-  }
-
-  .kw-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: var(--tag-bg);
-    border: 1px solid var(--tag-border);
-    border-radius: var(--radius-pill);
-    padding: 4px 10px 4px 12px;
-    font-size: 12px;
-    color: var(--text);
-    animation: tagIn 0.15s ease;
-  }
-
-  @keyframes tagIn {
-    from { opacity: 0; transform: scale(0.9); }
-    to { opacity: 1; transform: scale(1); }
-  }
-
-  .kw-tag-del {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-hint);
-    font-size: 13px;
-    line-height: 1;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    transition: color 0.1s;
-  }
-
-  .kw-tag-del:hover {
-    color: var(--danger);
-  }
-
-  .kw-add-row {
-    display: flex;
-    gap: 6px;
-  }
-
-  .kw-add-row input {
-    flex: 1;
-    border-radius: var(--radius-pill);
-    font-size: 12px;
-    padding: 5px 14px;
-  }
-
-  .add-kw-btn {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 5px 14px;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-pill);
-    background: none;
-    cursor: pointer;
-    color: var(--text);
-    transition: background 0.15s;
-    white-space: nowrap;
-  }
-
-  .add-kw-btn:hover {
-    background: var(--tag-bg);
-  }
-
-  .add-member-btn {
-    width: 100%;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    color: var(--text-muted);
-    background: none;
-    border: 1px dashed var(--border-strong);
-    border-radius: var(--radius);
-    padding: 12px;
-    cursor: pointer;
-    transition: color 0.15s, background 0.15s;
-    margin-bottom: 2rem;
-  }
-
-  .add-member-btn:hover {
-    color: var(--accent);
-    background: var(--accent-light);
-    border-color: var(--accent);
-  }
-
-  .output-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-
-  .output-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 1.25rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .output-title {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-muted);
-    font-family: 'DM Mono', monospace;
-  }
-
-  .copy-btn {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 5px 14px;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-pill);
-    background: none;
-    cursor: pointer;
-    color: var(--text);
-    transition: all 0.15s;
-  }
-
-  .copy-btn:hover {
-    background: var(--tag-bg);
-  }
-
-  .copy-btn.done {
-    color: var(--accent);
-    border-color: var(--accent);
-    background: var(--accent-light);
-  }
-
-  pre {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    line-height: 1.7;
-    color: var(--text-muted);
-    padding: 1rem 1.25rem;
-    overflow-x: auto;
-    white-space: pre;
-    max-height: 240px;
-    overflow-y: auto;
-  }
-
-  .steps {
-    padding: 12px 1.25rem;
-    border-top: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-
-  .step-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    font-size: 12px;
-    color: var(--text-muted);
-    line-height: 1.5;
-  }
-
-  .step-num {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--tag-bg);
-    color: var(--text-muted);
-    font-size: 10px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-
-  code {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    background: var(--tag-bg);
-    padding: 1px 5px;
-    border-radius: 3px;
-  }
-
-  a { color: var(--accent); }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:2rem 1rem 4rem}
+  .container{max-width:680px;margin:0 auto}
+  header{margin-bottom:2.5rem}
+  .logo{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .logo-mark{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:16px}
+  h1{font-size:20px;font-weight:500;letter-spacing:-0.02em}
+  .subtitle{font-size:13px;color:var(--text-muted);line-height:1.5}
+  .status-bar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;margin-bottom:1.5rem}
+  .status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .status-dot.loading{background:var(--text-hint);animation:pulse 1s infinite}
+  .status-dot.ok{background:#4caf7d}
+  .status-dot.error{background:var(--danger)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:10px;transition:border-color .15s}
+  .card:focus-within{border-color:var(--border-strong)}
+  .card-top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .avatar{width:38px;height:38px;border-radius:50%;background:var(--accent-light);color:var(--accent-text);font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:.02em}
+  .fields{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .field-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--text-hint);margin-bottom:3px}
+  input[type="text"]{width:100%;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;outline:none;transition:border-color .15s}
+  input[type="text"]:focus{border-color:var(--border-strong);background:white}
+  input[type="text"]::placeholder{color:var(--text-hint)}
+  .slack-input{font-family:'DM Mono',monospace;font-size:12px}
+  .remove-btn{background:none;border:none;cursor:pointer;color:var(--text-hint);font-size:18px;line-height:1;padding:4px;border-radius:4px;transition:color .15s,background .15s;flex-shrink:0}
+  .remove-btn:hover{color:var(--danger);background:var(--danger-light)}
+  .kw-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--text-hint);margin-bottom:8px}
+  .kw-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:28px}
+  .kw-tag{display:inline-flex;align-items:center;gap:5px;background:var(--tag-bg);border:1px solid var(--tag-border);border-radius:var(--radius-pill);padding:4px 10px 4px 12px;font-size:12px;color:var(--text);animation:tagIn .15s ease}
+  @keyframes tagIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+  .kw-tag-del{background:none;border:none;cursor:pointer;color:var(--text-hint);font-size:13px;line-height:1;padding:0;display:flex;align-items:center;transition:color .1s}
+  .kw-tag-del:hover{color:var(--danger)}
+  .kw-add-row{display:flex;gap:6px}
+  .kw-add-row input{flex:1;border-radius:var(--radius-pill);font-size:12px;padding:5px 14px}
+  .add-kw-btn{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 14px;border:1px solid var(--border-strong);border-radius:var(--radius-pill);background:none;cursor:pointer;color:var(--text);transition:background .15s;white-space:nowrap}
+  .add-kw-btn:hover{background:var(--tag-bg)}
+  .add-member-btn{width:100%;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text-muted);background:none;border:1px dashed var(--border-strong);border-radius:var(--radius);padding:12px;cursor:pointer;transition:color .15s,background .15s;margin-bottom:2rem}
+  .add-member-btn:hover{color:var(--accent);background:var(--accent-light);border-color:var(--accent)}
+  .output-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .output-header{display:flex;align-items:center;justify-content:space-between;padding:12px 1.25rem;border-bottom:1px solid var(--border)}
+  .output-title{font-size:12px;font-weight:500;color:var(--text-muted);font-family:'DM Mono',monospace}
+  .copy-btn{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 14px;border:1px solid var(--border-strong);border-radius:var(--radius-pill);background:none;cursor:pointer;color:var(--text);transition:all .15s}
+  .copy-btn:hover{background:var(--tag-bg)}
+  .copy-btn.done{color:var(--accent);border-color:var(--accent);background:var(--accent-light)}
+  pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:var(--text-muted);padding:1rem 1.25rem;overflow-x:auto;white-space:pre;max-height:240px;overflow-y:auto}
+  .steps{padding:12px 1.25rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px}
+  .step-row{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-muted);line-height:1.5}
+  .step-num{width:18px;height:18px;border-radius:50%;background:var(--tag-bg);color:var(--text-muted);font-size:10px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  code{font-family:'DM Mono',monospace;font-size:11px;background:var(--tag-bg);padding:1px 5px;border-radius:3px}
+  .skeleton{background:var(--border);border-radius:var(--radius);height:100px;margin-bottom:10px;animation:shimmer 1.2s ease infinite}
+  @keyframes shimmer{0%,100%{opacity:.5}50%{opacity:1}}
 </style>
 </head>
 <body>
@@ -386,48 +77,70 @@
     <p class="subtitle">メンバーごとの検索キーワードを設定します。編集後、JSONをコピーしてGitHubに貼り付けてください。</p>
   </header>
 
-  <div id="members-container"></div>
+  <div class="status-bar">
+    <span class="status-dot loading" id="status-dot"></span>
+    <span id="status-text">members.json を読み込み中...</span>
+  </div>
+
+  <div id="members-container">
+    <div class="skeleton"></div>
+    <div class="skeleton" style="height:80px;opacity:.6"></div>
+  </div>
 
   <button class="add-member-btn" onclick="addMember()">＋ メンバーを追加</button>
 
   <div class="output-section">
     <div class="output-header">
-      <span class="output-title">members.json</span>
+      <span class="output-title">docs/members.json</span>
       <button class="copy-btn" id="copy-btn" onclick="copyJson()">コピー</button>
     </div>
     <pre id="json-out"></pre>
     <div class="steps">
       <div class="step-row"><span class="step-num">1</span><span>上の「コピー」ボタンでJSONをコピー</span></div>
-      <div class="step-row"><span class="step-num">2</span><span>GitHubのリポジトリで <code>members.json</code> を開く</span></div>
+      <div class="step-row"><span class="step-num">2</span><span>GitHubのリポジトリで <code>docs/members.json</code> を開く</span></div>
       <div class="step-row"><span class="step-num">3</span><span>鉛筆アイコン（Edit）→ 全選択して貼り付け → <strong>Commit changes</strong></span></div>
     </div>
   </div>
 </div>
 
 <script>
-let members = [
-  {name:"田中", slack_id:"U01XXXXXXX", keywords:["spatial navigation","place cell"]},
-  {name:"鈴木", slack_id:"U02XXXXXXX", keywords:["working memory","prefrontal cortex"]},
-  {name:"佐藤", slack_id:"U03XXXXXXX", keywords:["hippocampus","memory consolidation"]},
-  {name:"Aimi", slack_id:"U04XXXXXXX", keywords:["subiculum inhibitory neurons","sharp-wave ripples subiculum"]},
-  {name:"Iida", slack_id:"U05XXXXXXX", keywords:["kainate receptor anxiety"]}
-];
+let members=[];
 
-function initials(name) {
-  return (name || '?').slice(0, 2).toUpperCase();
+async function loadMembers(){
+  try{
+    const res=await fetch('./members.json?t='+Date.now());
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    members=await res.json();
+    setStatus('ok','members.json を読み込みました（'+members.length+' 名）');
+  }catch(e){
+    setStatus('error','members.json の読み込みに失敗しました。GitHub Pages上で開いているか確認してください。');
+    members=[{name:'メンバー1',slack_id:'UXXXXXXXXX',keywords:['キーワード']}];
+  }
+  render();
 }
 
-function render() {
-  const c = document.getElementById('members-container');
-  c.innerHTML = '';
-  members.forEach((m, i) => {
-    const card = document.createElement('div');
-    card.className = 'card';
-    const kwTags = m.keywords.map((kw, ki) => `
+function setStatus(type,msg){
+  document.getElementById('status-dot').className='status-dot '+type;
+  document.getElementById('status-text').textContent=msg;
+}
+
+function initials(name){return(name||'?').slice(0,2).toUpperCase()}
+
+function escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function render(){
+  const c=document.getElementById('members-container');
+  c.innerHTML='';
+  members.forEach((m,i)=>{
+    const card=document.createElement('div');
+    card.className='card';
+    const kwTags=m.keywords.map((kw,ki)=>`
       <span class="kw-tag">${escHtml(kw)}
-        <button class="kw-tag-del" title="削除" onclick="removeKw(${i},${ki})">&#x2715;</button>
+        <button class="kw-tag-del" onclick="removeKw(${i},${ki})">&#x2715;</button>
       </span>`).join('');
-    card.innerHTML = `
+    card.innerHTML=`
       <div class="card-top">
         <div class="avatar" id="av-${i}">${initials(m.name)}</div>
         <div class="fields">
@@ -440,9 +153,9 @@ function render() {
             <input type="text" class="slack-input" value="${escHtml(m.slack_id)}" placeholder="UXXXXXXXXX" oninput="updateSlack(${i},this.value)">
           </div>
         </div>
-        <button class="remove-btn" title="削除" onclick="removeMember(${i})">&#x2715;</button>
+        <button class="remove-btn" onclick="removeMember(${i})">&#x2715;</button>
       </div>
-      <div class="kw-section">
+      <div>
         <div class="kw-label">キーワード</div>
         <div class="kw-tags">${kwTags}</div>
         <div class="kw-add-row">
@@ -455,74 +168,37 @@ function render() {
   updateJson();
 }
 
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function updateName(i,v){members[i].name=v;const av=document.getElementById('av-'+i);if(av)av.textContent=initials(v);updateJson()}
+function updateSlack(i,v){members[i].slack_id=v;updateJson()}
+function removeKw(i,ki){members[i].keywords.splice(ki,1);render()}
+function removeMember(i){
+  if(!confirm(members[i].name+' を削除しますか？'))return;
+  members.splice(i,1);render();
 }
-
-function updateName(i, v) {
-  members[i].name = v;
-  const av = document.getElementById('av-' + i);
-  if (av) av.textContent = initials(v);
-  updateJson();
-}
-
-function updateSlack(i, v) {
-  members[i].slack_id = v;
-  updateJson();
-}
-
-function removeKw(i, ki) {
-  members[i].keywords.splice(ki, 1);
+function addMember(){
+  members.push({name:'新しいメンバー',slack_id:'UXXXXXXXXX',keywords:[]});
   render();
+  setTimeout(()=>{const inputs=document.querySelectorAll('.card-top input[type="text"]');if(inputs.length)inputs[inputs.length-2].focus()},50);
 }
-
-function removeMember(i) {
-  if (!confirm(members[i].name + ' を削除しますか？')) return;
-  members.splice(i, 1);
-  render();
+function addKw(i){
+  const inp=document.getElementById('kw-input-'+i);
+  const v=inp.value.trim();if(!v)return;
+  members[i].keywords.push(v);inp.value='';render();
+  setTimeout(()=>{const n=document.getElementById('kw-input-'+i);if(n)n.focus()},30);
 }
-
-function addMember() {
-  members.push({name:'新しいメンバー', slack_id:'UXXXXXXXXX', keywords:[]});
-  render();
-  setTimeout(() => {
-    const inputs = document.querySelectorAll('.card-top input[type="text"]');
-    if (inputs.length) inputs[inputs.length - 2].focus();
-  }, 50);
+function updateJson(){
+  document.getElementById('json-out').textContent=JSON.stringify(
+    members.map(m=>({name:m.name,slack_id:m.slack_id,keywords:m.keywords})),null,2);
 }
-
-function addKw(i) {
-  const inp = document.getElementById('kw-input-' + i);
-  const v = inp.value.trim();
-  if (!v) return;
-  members[i].keywords.push(v);
-  inp.value = '';
-  render();
-  setTimeout(() => {
-    const next = document.getElementById('kw-input-' + i);
-    if (next) next.focus();
-  }, 30);
-}
-
-function updateJson() {
-  const out = members.map(m => ({name: m.name, slack_id: m.slack_id, keywords: m.keywords}));
-  document.getElementById('json-out').textContent = JSON.stringify(out, null, 2);
-}
-
-function copyJson() {
-  const text = document.getElementById('json-out').textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById('copy-btn');
-    btn.textContent = 'コピー完了 ✓';
-    btn.classList.add('done');
-    setTimeout(() => {
-      btn.textContent = 'コピー';
-      btn.classList.remove('done');
-    }, 2500);
+function copyJson(){
+  navigator.clipboard.writeText(document.getElementById('json-out').textContent).then(()=>{
+    const btn=document.getElementById('copy-btn');
+    btn.textContent='コピー完了 ✓';btn.classList.add('done');
+    setTimeout(()=>{btn.textContent='コピー';btn.classList.remove('done')},2500);
   });
 }
 
-render();
+loadMembers();
 </script>
 </body>
 </html>
