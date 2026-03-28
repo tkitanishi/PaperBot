@@ -198,38 +198,34 @@ def fetch_biorxiv(keywords, days_back, max_results):
 
 def get_altmetric_score(pmid):
     """Altmetric APIでスコアを取得する（失敗時は0）"""
-    import time
     try:
         url = f"https://api.altmetric.com/v1/pmid/{pmid}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
         score = data.get("score", 0)
-        time.sleep(0.5)
         return float(score)
-    except urllib.error.HTTPError as e:
-        if e.code != 404:
-            print(f"  Altmetric HTTPエラー {e.code} (pmid={pmid})")
-        return 0.0
-    except Exception as e:
-        print(f"  Altmetric エラー: {e} (pmid={pmid})")
+    except Exception:
         return 0.0
 
 
 def fetch_impact_papers(seen):
-    """日曜モード: Altmetricスコアが高い論文を取得する"""
+    """日曜モード: 引用数が多い注目論文を取得する"""
     candidates = fetch_pubmed_impact(DAYS_BACK_IMPACT, IMPACT_FETCH)
     new_papers  = [p for p in candidates if p["id"] not in seen]
 
-    print(f"Altmetricスコアを取得中（{len(new_papers)} 件）...")
+    print(f"引用数を取得中（{len(new_papers)} 件）...")
     for p in new_papers:
         if p["pmid"]:
-            p["altmetric_score"] = get_altmetric_score(p["pmid"])
-            print(f"  {p['altmetric_score']:.0f} — {p['title'][:50]}...")
+            citations, influential = get_citation_count(p["pmid"])
+            p["citation_count"]    = citations
+            p["influential_count"] = influential
+            print(f"  引用{citations}件(影響力{influential}件) — {p['title'][:50]}...")
         else:
-            p["altmetric_score"] = 0.0
+            p["citation_count"]    = 0
+            p["influential_count"] = 0
 
-    new_papers.sort(key=lambda x: x["altmetric_score"], reverse=True)
+    new_papers.sort(key=lambda x: x["citation_count"], reverse=True)
     return new_papers
 
 
@@ -299,8 +295,10 @@ def post_to_slack(header_text, sub_text, paper):
         meta.append(paper["journal"])
     if paper.get("year"):
         meta.append(paper["year"])
-    if paper.get("altmetric_score") and paper["altmetric_score"] > 0:
-        meta.append(f"Altmetric {paper['altmetric_score']:.0f}")
+    if paper.get("citation_count") and paper["citation_count"] > 0:
+        meta.append(f"引用 {paper['citation_count']} 件")
+    if paper.get("influential_count") and paper["influential_count"] > 0:
+        meta.append(f"影響力 {paper['influential_count']} 件")
     meta_line = f"\n`{'  |  '.join(meta)}`" if meta else f"\n`{paper['source']}`"
 
     blocks = [
@@ -341,7 +339,7 @@ def main():
     print(f"既出論文: {len(seen)} 件")
 
     # ── 日曜モード: Altmetric 注目論文 ──────────────────
-    if True:#is_sunday():
+    if is_sunday():
         print("🌟 日曜インパクトモード")
         papers = fetch_impact_papers(seen)
 
@@ -357,10 +355,10 @@ def main():
             "神経科学・生命科学の研究者"
         )
 
-        score_str = f"Altmetric {best['altmetric_score']:.0f}" if best.get("altmetric_score") else ""
+        citation_str = f"引用 {best['citation_count']} 件" if best.get("citation_count") else ""
         post_to_slack(
             f"🌟 今週の注目論文 {today}",
-            f"ターゲットジャーナルの中で今週最も注目された論文です。{score_str}",
+            f"ターゲットジャーナルの中で最も引用されている論文です。{citation_str}",
             best,
         )
 
