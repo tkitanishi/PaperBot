@@ -112,7 +112,7 @@ def summarize_with_hf(title, abstract):
         "parameters": {"max_new_tokens": 300, "return_full_text": False},
     }).encode()
 
-    url = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
+    url = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL}"
     req = urllib.request.Request(
         url, data=payload,
         headers={
