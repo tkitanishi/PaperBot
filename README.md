@@ -129,7 +129,7 @@ docs/members.json
 
 GitHub Pages を有効化すると `https://ユーザー名.github.io/リポジトリ名/` にアクセスできます。
 
-![設定ページのイメージ](https://via.placeholder.com/600x200?text=Keyword+Editor)
+設定ページ: https://tkitanishi.github.io/PaperBot/
 
 1. ページ上でメンバーの追加・削除、キーワードの編集ができる
 2. 編集が終わったら **「コピー」** ボタンを押す
