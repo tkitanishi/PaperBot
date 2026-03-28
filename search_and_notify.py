@@ -228,7 +228,7 @@ def post_to_slack(member, paper):
     blocks = [
         {"type": "header", "text": {"type": "plain_text", "text": f"📄 論文アップデート {today}"}},
         {"type": "section", "text": {"type": "mrkdwn",
-            "text": f"For {member['name']} <@{member['slack_id']}>　Keywords: {keyword_str}"}},
+            "text": f"For: {member['name']} <@{member['slack_id']}>　Keywords: {keyword_str}"}},
         {"type": "divider"},
         {"type": "section", "text": {"type": "mrkdwn",
             "text": (
