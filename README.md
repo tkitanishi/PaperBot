@@ -39,9 +39,9 @@ Nature Neuroscience  |  2026
     ↓ GitHub Actions が自動起動
 ターゲットジャーナルの過去1ヶ月の新着を20件取得
     ↓
-各論文の Altmetric スコア（SNS・ニュース等での注目度）を取得
+各論文の Semantic Scholar 引用数を取得
     ↓
-スコア上位5件から Claude Haiku が最終選択
+引用数上位5件から Claude Haiku が最終選択
     ↓
 日本語要約 → 「今週の注目論文」としてSlackに投稿
 ```
