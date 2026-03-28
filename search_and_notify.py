@@ -192,14 +192,23 @@ def fetch_biorxiv(keywords, days_back, max_results):
 
 def get_altmetric_score(pmid):
     """Altmetric APIでスコアを取得する（失敗時は0）"""
+    import time
     try:
         url = f"https://api.altmetric.com/v1/pmid/{pmid}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
         score = data.get("score", 0)
+        time.sleep(0.5)  # レートリミット対策
         return float(score)
-    except Exception:
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            pass  # Altmetricに未登録（よくある）
+        else:
+            print(f"  Altmetric HTTPエラー {e.code} (pmid={pmid})")
+        return 0.0
+    except Exception as e:
+        print(f"  Altmetric エラー: {e} (pmid={pmid})")
         return 0.0
 
 
