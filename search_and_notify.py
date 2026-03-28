@@ -47,8 +47,15 @@ def load_members():
 
 
 def select_member(members):
-    day_index = (datetime.utcnow() - datetime(2025, 1, 1)).days
-    member = members[day_index % len(members)]
+    """日曜日を除いた日数でローテーションする"""
+    base = datetime(2025, 1, 1)
+    today = datetime.utcnow()
+    # 基準日から今日までの日数のうち、日曜日（weekday==6）を除いてカウント
+    non_sunday_count = sum(
+        1 for i in range((today - base).days)
+        if (base + timedelta(days=i)).weekday() != 6
+    )
+    member = members[non_sunday_count % len(members)]
     print(f"本日の担当: {member['name']} (キーワード: {', '.join(member['keywords'])})")
     return member
 
