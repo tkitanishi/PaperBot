@@ -20,6 +20,15 @@ MAX_RESULTS    = 10
 DAYS_BACK      = 1
 SLACK_WEBHOOK  = os.environ["SLACK_WEBHOOK_URL"]
 ANTHROPIC_KEY  = os.environ["ANTHROPIC_API_KEY"]
+# 対象ジャーナル（部分一致）
+TARGET_JOURNALS = [
+    "Nature", "Science", "Cell",
+    "Nature Neuroscience", "Nature Human Behaviour", "Nature Communications",
+    "Neuron", "Current Biology", "eLife",
+    "PNAS", "Journal of Neuroscience",
+    "Cell Reports", "Science Advances",
+    "Nature Methods", "Nature Aging", "Nature Biotechnology",
+]
 SEEN_FILE      = "seen_papers.json"
 MAX_SEEN       = 2000
 # ────────────────────────────────────────────────────────
@@ -93,7 +102,13 @@ def fetch_pubmed(keywords, days_back, max_results):
             "url":      f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
             "source":   "PubMed",
         })
-    return papers
+    # ジャーナルフィルタ
+    filtered = [
+        p for p in papers
+        if any(t.lower() in p["journal"].lower() for t in TARGET_JOURNALS)
+    ]
+    print(f"PubMed: {len(papers)} 件取得 → フィルタ後 {len(filtered)} 件")
+    return filtered
 
 
 def fetch_biorxiv(keywords, days_back, max_results):
