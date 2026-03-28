@@ -1,7 +1,7 @@
 """
 論文検索 & Slack通知スクリプト
 - PubMed / bioRxiv から論文を検索
-- Gemini API（無料）で日本語要約
+- Groq API（無料）で日本語要約
 - Slack に投稿
 """
 
@@ -14,26 +14,23 @@ from datetime import datetime, timedelta
 
 
 # ── 設定 ────────────────────────────────────────────────
-KEYWORDS      = ["spatial navigation"]   # 検索キーワード
-MAX_RESULTS   = 5                        # 1ソースあたりの最大件数
-DAYS_BACK     = 1                        # 何日前までの論文を対象にするか
+KEYWORDS      = ["spatial navigation"]
+MAX_RESULTS   = 5
+DAYS_BACK     = 1
 SLACK_WEBHOOK = os.environ["SLACK_WEBHOOK_URL"]
-GEMINI_KEY    = os.environ["GEMINI_API_KEY"]
+GROQ_KEY      = os.environ["GROQ_API_KEY"]
+GROQ_MODEL    = "llama-3.1-70b-versatile"
 # ────────────────────────────────────────────────────────
 
 
 def fetch_pubmed(keywords, days_back, max_results):
-    """PubMed から論文を取得する"""
     since = (datetime.utcnow() - timedelta(days=days_back)).strftime("%Y/%m/%d")
     query = " AND ".join(f'"{kw}"' for kw in keywords)
     query += f' AND ("{since}"[Date - Publication] : "3000"[Date - Publication])'
 
     search_params = urllib.parse.urlencode({
-        "db": "pubmed",
-        "term": query,
-        "retmax": max_results,
-        "retmode": "json",
-        "sort": "pub+date",
+        "db": "pubmed", "term": query,
+        "retmax": max_results, "retmode": "json", "sort": "pub+date",
     })
     url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?{search_params}"
     with urllib.request.urlopen(url, timeout=15) as resp:
@@ -43,9 +40,7 @@ def fetch_pubmed(keywords, days_back, max_results):
         return []
 
     fetch_params = urllib.parse.urlencode({
-        "db": "pubmed",
-        "id": ",".join(ids),
-        "retmode": "xml",
+        "db": "pubmed", "id": ",".join(ids), "retmode": "xml",
     })
     url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?{fetch_params}"
     with urllib.request.urlopen(url, timeout=15) as resp:
@@ -57,7 +52,6 @@ def fetch_pubmed(keywords, days_back, max_results):
         pmid_el  = article.find(".//PMID")
         abs_el   = article.find(".//AbstractText")
         authors  = article.findall(".//Author")
-
         author_names = []
         for a in authors[:3]:
             last = a.find("LastName")
@@ -67,25 +61,19 @@ def fetch_pubmed(keywords, days_back, max_results):
         if len(authors) > 3:
             author_str += " et al."
 
-        title    = title_el.text if title_el is not None else "No title"
-        pmid     = pmid_el.text  if pmid_el  is not None else ""
-        abstract = abs_el.text   if abs_el   is not None else ""
-
         papers.append({
-            "title":    title,
+            "title":    title_el.text if title_el is not None else "No title",
             "authors":  author_str,
-            "abstract": abstract,
-            "url":      f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+            "abstract": abs_el.text   if abs_el   is not None else "",
+            "url":      f"https://pubmed.ncbi.nlm.nih.gov/{pmid_el.text if pmid_el is not None else ''}/",
             "source":   "PubMed",
         })
     return papers
 
 
 def fetch_biorxiv(keywords, days_back, max_results):
-    """bioRxiv から論文を取得する"""
     since = (datetime.utcnow() - timedelta(days=days_back)).strftime("%Y-%m-%d")
     today = datetime.utcnow().strftime("%Y-%m-%d")
-
     url = f"https://api.biorxiv.org/details/biorxiv/{since}/{today}/0/json"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -110,8 +98,7 @@ def fetch_biorxiv(keywords, days_back, max_results):
     return papers[:max_results]
 
 
-def summarize_with_gemini(title, abstract):
-    """Gemini API（無料）で日本語要約する"""
+def summarize_with_groq(title, abstract):
     if not abstract:
         return "（アブストラクトなし）"
 
@@ -122,46 +109,39 @@ def summarize_with_gemini(title, abstract):
     )
 
     payload = json.dumps({
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"maxOutputTokens": 300},
+        "model": GROQ_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 300,
     }).encode()
 
-    url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
-    )
     req = urllib.request.Request(
-        url,
+        "https://api.groq.com/openai/v1/chat/completions",
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type":  "application/json",
+            "Authorization": f"Bearer {GROQ_KEY}",
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             result = json.loads(resp.read())
-        return result["candidates"][0]["content"]["parts"][0]["text"].strip()
+        return result["choices"][0]["message"]["content"].strip()
     except urllib.error.HTTPError as e:
         body = e.read().decode()
-        print(f"Gemini API HTTPエラー {e.code}: {body}")
+        print(f"Groq API エラー {e.code}: {body}")
         return "（要約失敗）"
     except Exception as e:
-        print(f"Gemini API エラー: {type(e).__name__}: {e}")
+        print(f"Groq API エラー: {type(e).__name__}: {e}")
         return "（要約失敗）"
 
 
 def post_to_slack(papers):
-    """Slack に投稿する"""
     today = datetime.utcnow().strftime("%Y-%m-%d")
     keyword_str = " / ".join(KEYWORDS)
 
     blocks = [
-        {
-            "type": "header",
-            "text": {"type": "plain_text", "text": f"📄 論文アップデート {today}"},
-        },
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"キーワード: *{keyword_str}*  |  {len(papers)} 件"},
-        },
+        {"type": "header", "text": {"type": "plain_text", "text": f"📄 論文アップデート {today}"}},
+        {"type": "section", "text": {"type": "mrkdwn", "text": f"キーワード: *{keyword_str}*  |  {len(papers)} 件"}},
         {"type": "divider"},
     ]
 
@@ -173,8 +153,7 @@ def post_to_slack(papers):
                 "type": "mrkdwn",
                 "text": (
                     f"*{i}. <{p['url']}|{p['title']}>*{author_line}\n"
-                    f"`{p['source']}`\n"
-                    f"{p.get('summary', '')}"
+                    f"`{p['source']}`\n{p.get('summary', '')}"
                 ),
             },
         })
@@ -182,8 +161,7 @@ def post_to_slack(papers):
 
     payload = json.dumps({"blocks": blocks}).encode()
     req = urllib.request.Request(
-        SLACK_WEBHOOK,
-        data=payload,
+        SLACK_WEBHOOK, data=payload,
         headers={"Content-Type": "application/json"},
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
@@ -193,8 +171,7 @@ def post_to_slack(papers):
 
 def main():
     print("論文を検索中...")
-    papers = []
-    papers += fetch_pubmed(KEYWORDS, DAYS_BACK, MAX_RESULTS)
+    papers = fetch_pubmed(KEYWORDS, DAYS_BACK, MAX_RESULTS)
     papers += fetch_biorxiv(KEYWORDS, DAYS_BACK, MAX_RESULTS)
 
     if not papers:
@@ -203,7 +180,7 @@ def main():
 
     print(f"{len(papers)} 件見つかりました。要約中...")
     for p in papers:
-        p["summary"] = summarize_with_gemini(p["title"], p["abstract"])
+        p["summary"] = summarize_with_groq(p["title"], p["abstract"])
         print(f"  完了: {p['title'][:60]}...")
 
     post_to_slack(papers)
