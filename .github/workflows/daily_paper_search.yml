@@ -2,7 +2,7 @@ name: Daily Paper Search
 
 on:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 * * *"   # 毎日 UTC 00:00 = 日本時間 09:00
   workflow_dispatch:
 
 jobs:
@@ -16,5 +16,5 @@ jobs:
       - name: 論文検索 & Slack 投稿
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python search_and_notify.py
