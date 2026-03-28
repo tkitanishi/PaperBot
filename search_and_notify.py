@@ -1,7 +1,7 @@
 """
 論文検索 & Slack通知スクリプト
 - 平日: members.json からメンバーを日替わりで選択、キーワード検索
-- 日曜: Altmetric スコアが高い注目論文を紹介
+- 日曜: Semantic Scholar スコアが高い注目論文を紹介
 - Claude Haiku で最重要論文を1本選択・日本語要約
 - Slack に投稿した論文だけ seen_papers.json に記録
 """
@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 MAX_RESULTS        = 10
 DAYS_BACK          = 365
 DAYS_BACK_IMPACT   = 30     # 日曜モード: 過去1ヶ月
-IMPACT_FETCH       = 20     # 日曜モード: Altmetricスコアを取得する候補数
+IMPACT_FETCH       = 20     # 日曜モード: 引用数を取得する候補数
 SLACK_WEBHOOK      = os.environ["SLACK_WEBHOOK_URL"]
 ANTHROPIC_KEY      = os.environ["ANTHROPIC_API_KEY"]
 MEMBERS_FILE       = "docs/members.json"
@@ -152,7 +152,7 @@ def _fetch_pubmed_details(ids):
         papers.append({
             "id":       f"pubmed_{pmid}",
             "pmid":     pmid,
-            "title":    title_el.text    if title_el   is not None else "No title",
+            "title":    "".join(title_el.itertext()) if title_el is not None else "No title",
             "authors":  author_str,
             "journal":  journal_el.text  if journal_el is not None else "",
             "year":     (year_el.text or "")[:4] if year_el is not None else "",
@@ -346,7 +346,7 @@ def main():
     seen  = load_seen()
     print(f"既出論文: {len(seen)} 件")
 
-    # ── 日曜モード: Altmetric 注目論文 ──────────────────
+    # ── 日曜モード: 引用数注目論文 ──────────────────
     if is_sunday():
         print("🌟 日曜インパクトモード")
         papers = fetch_impact_papers(seen)
@@ -355,7 +355,7 @@ def main():
             post_no_papers_to_slack(f"📭 {today} 今週は注目論文なし（インパクトモード）")
             return
 
-        # Altmetricスコア上位5件からClaudeが最終選択
+        # 引用数上位5件からClaudeが最終選択
         top5 = papers[:5]
         best = select_best_paper(top5, ["neuroscience", "life science"])
         best["summary"] = summarize_with_claude(
