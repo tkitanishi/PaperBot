@@ -260,7 +260,7 @@ def call_claude(prompt, max_tokens=50):
 def select_best_paper(papers, keywords):
     lines = []
     for i, p in enumerate(papers):
-        snippet = p["abstract"][:300].replace("\n", " ")
+        snippet = p["abstract"][:500].replace("\n", " ")
         lines.append(f"{i+1}. {p['title']} / {snippet}...")
     keyword_str = " / ".join(keywords)
     prompt = (
