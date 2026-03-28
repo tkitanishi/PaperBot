@@ -365,8 +365,7 @@ def main():
 
         citation_str = f"引用 {best['citation_count']} 件" if best.get("citation_count") else ""
         post_to_slack(
-            f"🌟 今週の注目論文 {today}",
-            f"ターゲットジャーナルの中で最も引用されている論文です。{citation_str}",
+            "🌟 今週の注目論文",
             best,
         )
 
@@ -401,7 +400,7 @@ def main():
         )
 
         post_to_slack(
-            f"📄 論文アップデート {today}",
+            "📄 論文アップデート",
             "For " + member['name'] + " " + (f"<@{member['slack_id']}>" if member.get('slack_id') else "") + "　Keywords: " + ' / '.join(keywords),
             best,
         )
