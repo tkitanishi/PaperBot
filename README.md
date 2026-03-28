@@ -1,6 +1,6 @@
-# 📄 論文Bot — PubMed / bioRxiv → Slack
+# 📄 論文Bot : PubMed / bioRxiv → Claude API → Slack
 
-毎朝、メンバーごとのキーワードで新着論文を自動検索し、Claude Haiku で最重要論文を1本選んで日本語要約し、Slack にメンションつきで投稿するBot。日曜日は Altmetric スコアをもとにした注目論文モードに切り替わります。
+毎朝、メンバーごとのキーワードで新着論文を自動検索し、Claude Haiku で最重要論文を1本選んで日本語要約し、Slack にメンションつきで投稿するBot。**日曜日は Semantic Scholar の引用数をもとにした注目論文モードに切り替わります。**
 
 ---
 
@@ -9,9 +9,9 @@
 **月〜土曜日：メンバーキーワードモード**
 
 ```
-毎朝8時（日本時間）
+毎朝9時（日本時間）
     ↓ GitHub Actions が自動起動
-今日の担当メンバーを日替わりで選択（3人なら3日周期）
+今日の担当メンバーを日替わりで選択（日曜日を除いた周期）
     ↓
 PubMed（ターゲットジャーナル限定）/ bioRxiv をキーワードで検索
     ↓
@@ -23,7 +23,7 @@ seen_papers.json を更新（投稿した論文のみ記録）
 ```
 
 ```
-📄 論文アップデート 2026-03-28
+📄 論文アップデート
 For 田中 @tanaka　Keywords: spatial navigation / place cell
 
 Obstacle coding in scene-selective cortices
@@ -32,10 +32,10 @@ Nature Neuroscience  |  2026
 海馬傍回と海馬がナビゲーション中の障害物符号化に関与することを示した。...
 ```
 
-**日曜日：Altmetric 注目論文モード**
+**日曜日：注目論文モード**
 
 ```
-毎朝8時（日本時間）
+毎朝9時（日本時間）
     ↓ GitHub Actions が自動起動
 ターゲットジャーナルの過去1ヶ月の新着を20件取得
     ↓
@@ -47,12 +47,12 @@ Nature Neuroscience  |  2026
 ```
 
 ```
-🌟 今週の注目論文 2026-03-29
-ターゲットジャーナルの中で今週最も注目された論文です。
+🌟 今週の注目論文
+引用 47 件
 
 A new mechanism for hippocampal memory consolidation
 Smith, Jones et al.
-Nature  |  2026  |  Altmetric 342
+Nature  |  2026  |  引用 47 件  |  影響力 12 件
 記憶固定化における海馬の新たなメカニズムを発見した。...
 ```
 
@@ -143,7 +143,7 @@ docs/members.json
 3. **「Run workflow」** で手動実行
 4. Slack に投稿が届けば完了！
 
-**日曜モードのテスト方法：** `search_and_notify.py` の `if is_sunday():` を一時的に `if True:` に書き換えてRun workflowすると動作確認できます。テスト後は必ず元に戻してください。
+**日曜モードのテスト方法：** `search_and_notify.py` の `if is_sunday():` を一時的に `if True:` に書き換えてRun workflowすると動作確認できます。テスト後は必ず `is_sunday()` に戻してください。
 
 ---
 
@@ -182,7 +182,7 @@ GitHubで `docs/members.json` を直接編集します：
 
 **Slack IDの調べ方：** Slackでプロフィールを開く → 「…」→「メンバーIDをコピー」
 
-ローテーションは日付ベースで自動的に決まります（3人なら3日周期）。
+ローテーションは日曜日を除いた日数ベースで自動的に決まります（3人なら6日周期）。
 
 ---
 
@@ -194,11 +194,11 @@ GitHubで `docs/members.json` を直接編集します：
 MAX_RESULTS       = 10    # キーワードモードの検索件数
 DAYS_BACK         = 365   # キーワードモードの対象期間
 DAYS_BACK_IMPACT  = 30    # 日曜モードの対象期間（過去1ヶ月）
-IMPACT_FETCH      = 20    # 日曜モードでAltmetricスコアを取得する候補数
+IMPACT_FETCH      = 20    # 日曜モードで引用数を取得する候補数
 
 TARGET_JOURNALS = [
     "Nature", "Science", "Cell",
-    "Nature Neuroscience", "Nature Human Behaviour", "Nature Medicine", "Nature Communications", 
+    "Nature Neuroscience", "Nature Human Behaviour", "Nature Medicine", "Nature Communications",
     "Neuron", "Current Biology", "eLife",
     "PNAS", "Journal of Neuroscience",
     "Cell Reports", "Science Advances",
@@ -229,7 +229,7 @@ def is_sunday():
 | GitHub Actions | 無料（月2,000分まで） |
 | PubMed API | 無料 |
 | bioRxiv API | 無料 |
-| Altmetric API | 無料 |
+| Semantic Scholar API | 無料 |
 | Claude Haiku API | 約 $0.001 / 日（$5で約10年分） |
 
 ---
@@ -243,4 +243,4 @@ def is_sunday():
 | `本日は新着論文なし` | 該当論文がなかった | 正常動作。`DAYS_BACK` を増やすか `TARGET_JOURNALS` を広げる |
 | bioRxiv タイムアウト | bioRxiv API が不安定 | 一時的なもの。PubMedの結果は投稿される |
 | seen_papers.jsonのコミットが失敗 | 書き込み権限がない | Settings → Actions → General → Read and write permissions に変更 |
-| 日曜モードでAltmetricスコアが全部0 | スコアが取得できなかった | Altmetric APIの一時的な問題。スコアなしでClaudeが選択するので動作は継続 |
+| 日曜モードで引用数が全部0 | Semantic Scholar に未登録 | 新しすぎる論文はデータがないことがある。引用数なしでClaudeが選択するので動作は継続 |
