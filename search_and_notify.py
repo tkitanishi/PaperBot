@@ -1,7 +1,8 @@
 """
 論文検索 & Slack通知スクリプト
 - PubMed / bioRxiv から論文を検索
-- Claude API で日本語要約
+- 既出論文をスキップ（seen_papers.json で管理）
+- Claude Haiku で日本語要約
 - Slack に投稿
 """
 
@@ -19,7 +20,27 @@ MAX_RESULTS    = 5
 DAYS_BACK      = 1
 SLACK_WEBHOOK  = os.environ["SLACK_WEBHOOK_URL"]
 ANTHROPIC_KEY  = os.environ["ANTHROPIC_API_KEY"]
+SEEN_FILE      = "seen_papers.json"   # 既出論文IDを保存するファイル
+MAX_SEEN       = 2000                 # 保存する最大件数（古いものは自動削除）
 # ────────────────────────────────────────────────────────
+
+
+def load_seen():
+    """既出論文IDのセットを読み込む"""
+    try:
+        with open(SEEN_FILE, "r") as f:
+            return set(json.load(f))
+    except FileNotFoundError:
+        return set()
+
+
+def save_seen(seen: set):
+    """既出論文IDを保存する（古いものは削除）"""
+    seen_list = list(seen)
+    if len(seen_list) > MAX_SEEN:
+        seen_list = seen_list[-MAX_SEEN:]
+    with open(SEEN_FILE, "w") as f:
+        json.dump(seen_list, f)
 
 
 def fetch_pubmed(keywords, days_back, max_results):
@@ -60,11 +81,13 @@ def fetch_pubmed(keywords, days_back, max_results):
         if len(authors) > 3:
             author_str += " et al."
 
+        pmid = pmid_el.text if pmid_el is not None else ""
         papers.append({
+            "id":       f"pubmed_{pmid}",
             "title":    title_el.text if title_el is not None else "No title",
             "authors":  author_str,
             "abstract": abs_el.text   if abs_el   is not None else "",
-            "url":      f"https://pubmed.ncbi.nlm.nih.gov/{pmid_el.text if pmid_el is not None else ''}/",
+            "url":      f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
             "source":   "PubMed",
         })
     return papers
@@ -88,6 +111,7 @@ def fetch_biorxiv(keywords, days_back, max_results):
         if any(kw.lower() in text for kw in keywords):
             doi = item.get("doi", "")
             papers.append({
+                "id":       f"biorxiv_{doi}",
                 "title":    item.get("title", "No title"),
                 "authors":  item.get("authors", ""),
                 "abstract": item.get("abstract", ""),
@@ -102,7 +126,7 @@ def summarize_with_claude(title, abstract):
         return "（アブストラクトなし）"
 
     payload = json.dumps({
-        "model": "claude-haiku-4-5-20251001",  # 最も安価なモデル
+        "model": "claude-haiku-4-5-20251001",
         "max_tokens": 300,
         "messages": [{
             "role": "user",
@@ -128,8 +152,7 @@ def summarize_with_claude(title, abstract):
             result = json.loads(resp.read())
         return result["content"][0]["text"].strip()
     except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        print(f"Claude API エラー {e.code}: {body}")
+        print(f"Claude API エラー {e.code}: {e.read().decode()}")
         return "（要約失敗）"
     except Exception as e:
         print(f"Claude API エラー: {e}")
@@ -171,20 +194,32 @@ def post_to_slack(papers):
 
 
 def main():
-    print("論文を検索中...")
-    papers = fetch_pubmed(KEYWORDS, DAYS_BACK, MAX_RESULTS)
-    papers += fetch_biorxiv(KEYWORDS, DAYS_BACK, MAX_RESULTS)
+    seen = load_seen()
+    print(f"既出論文: {len(seen)} 件")
 
-    if not papers:
+    print("論文を検索中...")
+    candidates = fetch_pubmed(KEYWORDS, DAYS_BACK, MAX_RESULTS)
+    candidates += fetch_biorxiv(KEYWORDS, DAYS_BACK, MAX_RESULTS)
+
+    # 既出をフィルタ
+    new_papers = [p for p in candidates if p["id"] not in seen]
+    print(f"新着: {len(new_papers)} 件（既出 {len(candidates) - len(new_papers)} 件をスキップ）")
+
+    if not new_papers:
         print("本日は新着論文なし")
         return
 
-    print(f"{len(papers)} 件見つかりました。要約中...")
-    for p in papers:
+    print("要約中...")
+    for p in new_papers:
         p["summary"] = summarize_with_claude(p["title"], p["abstract"])
         print(f"  完了: {p['title'][:60]}...")
 
-    post_to_slack(papers)
+    post_to_slack(new_papers)
+
+    # 投稿済みIDを保存
+    seen.update(p["id"] for p in new_papers)
+    save_seen(seen)
+    print(f"seen_papers.json を更新しました（合計 {len(seen)} 件）")
 
 
 if __name__ == "__main__":
