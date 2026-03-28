@@ -1,7 +1,7 @@
 """
 論文検索 & Slack通知スクリプト
 - PubMed / bioRxiv から論文を検索
-- Hugging Face API（無料）で日本語要約
+- Claude API で日本語要約
 - Slack に投稿
 """
 
@@ -14,12 +14,11 @@ from datetime import datetime, timedelta
 
 
 # ── 設定 ────────────────────────────────────────────────
-KEYWORDS      = ["spatial navigation"]
-MAX_RESULTS   = 5
-DAYS_BACK     = 1
-SLACK_WEBHOOK = os.environ["SLACK_WEBHOOK_URL"]
-HF_KEY        = os.environ["HF_API_KEY"]
-HF_MODEL      = "meta-llama/Llama-3.2-3B-Instruct"
+KEYWORDS       = ["spatial navigation"]
+MAX_RESULTS    = 5
+DAYS_BACK      = 1
+SLACK_WEBHOOK  = os.environ["SLACK_WEBHOOK_URL"]
+ANTHROPIC_KEY  = os.environ["ANTHROPIC_API_KEY"]
 # ────────────────────────────────────────────────────────
 
 
@@ -98,40 +97,42 @@ def fetch_biorxiv(keywords, days_back, max_results):
     return papers[:max_results]
 
 
-def summarize_with_hf(title, abstract):
+def summarize_with_claude(title, abstract):
     if not abstract:
         return "（アブストラクトなし）"
 
-    prompt = (
-        "以下の論文を、空間ナビゲーション・認知地図の研究者向けに"
-        "日本語で3文以内で要約してください。専門用語はそのまま使ってください。\n\n"
-        f"タイトル: {title}\n\nアブストラクト: {abstract}"
-    )
-
     payload = json.dumps({
-        "model": HF_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
+        "model": "claude-haiku-4-5-20251001",  # 最も安価なモデル
         "max_tokens": 300,
+        "messages": [{
+            "role": "user",
+            "content": (
+                "以下の論文を、空間ナビゲーション・認知地図の研究者向けに"
+                "日本語で3文以内で要約してください。専門用語はそのまま使ってください。\n\n"
+                f"タイトル: {title}\n\nアブストラクト: {abstract}"
+            ),
+        }],
     }).encode()
 
-    url = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL}/v1/chat/completions"
     req = urllib.request.Request(
-        url, data=payload,
+        "https://api.anthropic.com/v1/messages",
+        data=payload,
         headers={
-            "Content-Type":  "application/json",
-            "Authorization": f"Bearer {HF_KEY}",
+            "Content-Type":      "application/json",
+            "x-api-key":         ANTHROPIC_KEY,
+            "anthropic-version": "2023-06-01",
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:
             result = json.loads(resp.read())
-        return result["choices"][0]["message"]["content"].strip()
+        return result["content"][0]["text"].strip()
     except urllib.error.HTTPError as e:
         body = e.read().decode()
-        print(f"HF API エラー {e.code}: {body}")
+        print(f"Claude API エラー {e.code}: {body}")
         return "（要約失敗）"
     except Exception as e:
-        print(f"HF API エラー: {type(e).__name__}: {e}")
+        print(f"Claude API エラー: {e}")
         return "（要約失敗）"
 
 
@@ -180,7 +181,7 @@ def main():
 
     print(f"{len(papers)} 件見つかりました。要約中...")
     for p in papers:
-        p["summary"] = summarize_with_hf(p["title"], p["abstract"])
+        p["summary"] = summarize_with_claude(p["title"], p["abstract"])
         print(f"  完了: {p['title'][:60]}...")
 
     post_to_slack(papers)
