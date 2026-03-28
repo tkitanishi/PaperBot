@@ -1,7 +1,8 @@
 """
 論文検索 & Slack通知スクリプト
-- PubMed / bioRxiv から "spatial navigation" 論文を検索
-- タイトル＋リンクを Slack に投稿
+- PubMed / bioRxiv から論文を検索
+- Gemini API（無料）で日本語要約
+- Slack に投稿
 """
 
 import os
@@ -14,9 +15,10 @@ from datetime import datetime, timedelta
 
 # ── 設定 ────────────────────────────────────────────────
 KEYWORDS      = ["spatial navigation"]   # 検索キーワード
-MAX_RESULTS   = 2                        # 1ソースあたりの最大件数
+MAX_RESULTS   = 5                        # 1ソースあたりの最大件数
 DAYS_BACK     = 1                        # 何日前までの論文を対象にするか
 SLACK_WEBHOOK = os.environ["SLACK_WEBHOOK_URL"]
+GEMINI_KEY    = os.environ["GEMINI_API_KEY"]
 # ────────────────────────────────────────────────────────
 
 
@@ -53,7 +55,9 @@ def fetch_pubmed(keywords, days_back, max_results):
     for article in root.findall(".//PubmedArticle"):
         title_el = article.find(".//ArticleTitle")
         pmid_el  = article.find(".//PMID")
+        abs_el   = article.find(".//AbstractText")
         authors  = article.findall(".//Author")
+
         author_names = []
         for a in authors[:3]:
             last = a.find("LastName")
@@ -63,13 +67,16 @@ def fetch_pubmed(keywords, days_back, max_results):
         if len(authors) > 3:
             author_str += " et al."
 
-        title = title_el.text if title_el is not None else "No title"
-        pmid  = pmid_el.text  if pmid_el  is not None else ""
+        title    = title_el.text if title_el is not None else "No title"
+        pmid     = pmid_el.text  if pmid_el  is not None else ""
+        abstract = abs_el.text   if abs_el   is not None else ""
+
         papers.append({
-            "title":   title,
-            "authors": author_str,
-            "url":     f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
-            "source":  "PubMed",
+            "title":    title,
+            "authors":  author_str,
+            "abstract": abstract,
+            "url":      f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+            "source":   "PubMed",
         })
     return papers
 
@@ -94,12 +101,47 @@ def fetch_biorxiv(keywords, days_back, max_results):
         if any(kw.lower() in text for kw in keywords):
             doi = item.get("doi", "")
             papers.append({
-                "title":   item.get("title", "No title"),
-                "authors": item.get("authors", ""),
-                "url":     f"https://www.biorxiv.org/content/{doi}",
-                "source":  "bioRxiv",
+                "title":    item.get("title", "No title"),
+                "authors":  item.get("authors", ""),
+                "abstract": item.get("abstract", ""),
+                "url":      f"https://www.biorxiv.org/content/{doi}",
+                "source":   "bioRxiv",
             })
     return papers[:max_results]
+
+
+def summarize_with_gemini(title, abstract):
+    """Gemini API（無料）で日本語要約する"""
+    if not abstract:
+        return "（アブストラクトなし）"
+
+    prompt = (
+        "以下の論文を、空間ナビゲーション・認知地図の研究者向けに"
+        "日本語で3文以内で要約してください。専門用語はそのまま使ってください。\n\n"
+        f"タイトル: {title}\n\nアブストラクト: {abstract}"
+    )
+
+    payload = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"maxOutputTokens": 300},
+    }).encode()
+
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
+    )
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read())
+        return result["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except Exception as e:
+        print(f"Gemini API エラー: {e}")
+        return "（要約失敗）"
 
 
 def post_to_slack(papers):
@@ -110,11 +152,11 @@ def post_to_slack(papers):
     blocks = [
         {
             "type": "header",
-            "text": {"type": "plain_text", "text": f"Papers {today}"},
+            "text": {"type": "plain_text", "text": f"📄 論文アップデート {today}"},
         },
         {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": f"Keywords: *{keyword_str}*  |  {len(papers)} papers"},
+            "text": {"type": "mrkdwn", "text": f"キーワード: *{keyword_str}*  |  {len(papers)} 件"},
         },
         {"type": "divider"},
     ]
@@ -125,11 +167,14 @@ def post_to_slack(papers):
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"*{i}. <{p['url']}|{p['title']}>*{author_line}\n`{p['source']}`",
+                "text": (
+                    f"*{i}. <{p['url']}|{p['title']}>*{author_line}\n"
+                    f"`{p['source']}`\n"
+                    f"{p.get('summary', '')}"
+                ),
             },
         })
-
-    blocks.append({"type": "divider"})
+        blocks.append({"type": "divider"})
 
     payload = json.dumps({"blocks": blocks}).encode()
     req = urllib.request.Request(
@@ -139,20 +184,24 @@ def post_to_slack(papers):
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
         resp.read()
-    print(f"Posted {len(papers)} papers to Slack")
+    print(f"Slack に {len(papers)} 件投稿しました")
 
 
 def main():
-    print("Searching papers...")
+    print("論文を検索中...")
     papers = []
     papers += fetch_pubmed(KEYWORDS, DAYS_BACK, MAX_RESULTS)
     papers += fetch_biorxiv(KEYWORDS, DAYS_BACK, MAX_RESULTS)
 
     if not papers:
-        print("No new papers today")
+        print("本日は新着論文なし")
         return
 
-    print(f"Found {len(papers)} papers. Posting to Slack...")
+    print(f"{len(papers)} 件見つかりました。要約中...")
+    for p in papers:
+        p["summary"] = summarize_with_gemini(p["title"], p["abstract"])
+        print(f"  完了: {p['title'][:60]}...")
+
     post_to_slack(papers)
 
 
