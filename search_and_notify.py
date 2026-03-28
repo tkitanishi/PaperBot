@@ -82,10 +82,23 @@ def fetch_pubmed(keywords, days_back, max_results):
             author_str += " et al."
 
         pmid = pmid_el.text if pmid_el is not None else ""
+
+        # ジャーナル名
+        journal_el = article.find(".//Journal/Title")
+        journal = journal_el.text if journal_el is not None else ""
+
+        # 発表年
+        year_el = article.find(".//PubDate/Year")
+        if year_el is None:
+            year_el = article.find(".//PubDate/MedlineDate")
+        year = year_el.text[:4] if year_el is not None else ""
+
         papers.append({
             "id":       f"pubmed_{pmid}",
             "title":    title_el.text if title_el is not None else "No title",
             "authors":  author_str,
+            "journal":  journal,
+            "year":     year,
             "abstract": abs_el.text   if abs_el   is not None else "",
             "url":      f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
             "source":   "PubMed",
@@ -110,10 +123,14 @@ def fetch_biorxiv(keywords, days_back, max_results):
         text = (item.get("title", "") + " " + item.get("abstract", "")).lower()
         if any(kw.lower() in text for kw in keywords):
             doi = item.get("doi", "")
+            date = item.get("date", "")
+            year = date[:4] if date else ""
             papers.append({
                 "id":       f"biorxiv_{doi}",
                 "title":    item.get("title", "No title"),
                 "authors":  item.get("authors", ""),
+                "journal":  "bioRxiv (preprint)",
+                "year":     year,
                 "abstract": item.get("abstract", ""),
                 "url":      f"https://www.biorxiv.org/content/{doi}",
                 "source":   "bioRxiv",
@@ -171,13 +188,19 @@ def post_to_slack(papers):
 
     for i, p in enumerate(papers, 1):
         author_line = f"\n_{p['authors']}_" if p.get("authors") else ""
+        meta = []
+        if p.get("journal"):
+            meta.append(p["journal"])
+        if p.get("year"):
+            meta.append(p["year"])
+        meta_line = f"\n`{'  |  '.join(meta)}`" if meta else f"\n`{p['source']}`"
         blocks.append({
             "type": "section",
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    f"*{i}. <{p['url']}|{p['title']}>*{author_line}\n"
-                    f"`{p['source']}`\n{p.get('summary', '')}"
+                    f"*{i}. <{p['url']}|{p['title']}>*{author_line}"
+                    f"{meta_line}\n{p.get('summary', '')}"
                 ),
             },
         })
