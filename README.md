@@ -1,34 +1,35 @@
 # 📄 論文Bot — PubMed / bioRxiv → Slack
 
-毎朝、指定キーワードに関する新着論文を自動検索し、Claude Haiku で日本語要約して Slack に投稿するBot。
+毎朝、メンバーごとのキーワードで新着論文を自動検索し、Claude Haiku で最重要論文を1本選んで日本語要約し、Slack にメンションつきで投稿するBot。
 
 ---
 
-## 完成イメージ
+## 動作イメージ
 
 ```
 毎朝9時（日本時間）
     ↓ GitHub Actions が自動起動
-PubMed / bioRxiv を検索
+今日の担当メンバーを日替わりで選択
     ↓
-Claude Haiku で日本語要約
+PubMed（ターゲットジャーナル限定）/ bioRxiv を検索
     ↓
-Slack に投稿
+既出論文を除外 → 最大10件から Claude Haiku が最重要論文を1本選択
+    ↓
+日本語要約 → Slack にメンションつきで投稿
+    ↓
+seen_papers.json を更新（投稿した論文のみ記録）
 ```
 
 Slackにはこのような形式で届きます：
 
 ```
 📄 論文アップデート 2026-03-28
-キーワード: spatial navigation | 5件
+For 田中 @tanaka　Keywords: spatial navigation / place cell
 
-1. Obstacle coding in scene-selective cortices
-   Smith, Jones, Brown et al.
-   PubMed
-   海馬傍回と海馬がナビゲーション中の障害物符号化に関与することを示した。
-   fMRI実験により、障害物の位置と形状が...
-
----
+Obstacle coding in scene-selective cortices
+Smith, Jones, Brown et al.
+Nature Neuroscience  |  2026
+海馬傍回と海馬がナビゲーション中の障害物符号化に関与することを示した。...
 ```
 
 ---
@@ -38,10 +39,13 @@ Slackにはこのような形式で届きます：
 ```
 your-repo/
 ├── search_and_notify.py            # メインスクリプト
-├── README.md                       # このファイル
-└── .github/
-    └── workflows/
-        └── daily_paper_search.yml  # GitHub Actions スケジューラー
+├── seen_papers.json                # 投稿済み論文ID（自動生成）
+├── .github/
+│   └── workflows/
+│       └── daily_paper_search.yml  # GitHub Actions スケジューラー
+└── docs/
+    ├── index.html                  # キーワード設定ページ（GitHub Pages）
+    └── members.json                # メンバーとキーワードの設定ファイル
 ```
 
 ---
@@ -56,9 +60,8 @@ your-repo/
 4. 左メニュー **「Incoming Webhooks」** を開き、**「Activate Incoming Webhooks」** を ON
 5. **「Add New Webhook to Workspace」** → 投稿先チャンネルを選択
 6. 生成された Webhook URL をコピー
-   ```
-   https://hooks.slack.com/services/XXXXX/YYYYY/ZZZZZ
-   ```
+
+投稿先チャンネルを変更したい場合は、同画面で新しいWebhookを追加し、GitHub SecretのURLを差し替えます。
 
 ### Step 2｜Anthropic API キーを取得する
 
@@ -66,17 +69,21 @@ your-repo/
 2. **「Plans & Billing」→「Buy credits」** で $5 以上購入
 3. **「API Keys」→「Create Key」** でAPIキーを作成してコピー
 
+費用の目安は約 $0.001/日（$5で約10年分）。
+
 ### Step 3｜GitHub リポジトリを作成する
 
-1. GitHub で新しいリポジトリを作成（Private でOK）
-2. 以下の3ファイルをアップロード：
-   - `search_and_notify.py`
-   - `.github/workflows/daily_paper_search.yml`
-   - `README.md`
+1. GitHub で新しいリポジトリを作成（Public でも Private でも可）
+2. 以下のファイルをアップロード：
 
-> **注意**: `.github/workflows/` フォルダはGitHubのWeb画面で  
-> 「Add file → Create new file」でファイル名に `.github/workflows/daily_paper_search.yml` と  
-> 入力すると自動で作成されます。
+```
+search_and_notify.py
+.github/workflows/daily_paper_search.yml
+docs/index.html
+docs/members.json
+```
+
+> **注意**: `.github/workflows/` フォルダはWeb画面で「Add file → Create new file」のファイル名欄に `.github/workflows/daily_paper_search.yml` と入力すると自動で作成されます。
 
 ### Step 4｜GitHub Secrets に登録する
 
@@ -87,7 +94,25 @@ your-repo/
 | `SLACK_WEBHOOK_URL` | Step 1 でコピーした Webhook URL |
 | `ANTHROPIC_API_KEY` | Step 2 でコピーした API キー |
 
-### Step 5｜動作確認
+### Step 5｜Actionsの書き込み権限を有効化する
+
+リポジトリの **Settings → Actions → General → Workflow permissions**
+→ **「Read and write permissions」** を選択 → Save
+
+（`seen_papers.json` の自動コミットに必要）
+
+### Step 6｜GitHub Pages を有効化する（任意）
+
+メンバーがキーワードを自分で編集できるWebページを公開する場合：
+
+1. リポジトリの **Settings → Pages**
+2. Source: `Deploy from a branch`
+3. Branch: `main`、フォルダ: `/docs` → **Save**
+4. 数分後に `https://ユーザー名.github.io/リポジトリ名/` でアクセス可能
+
+このページでキーワードを編集 → JSONをコピー → GitHubの `docs/members.json` に貼り付けてCommitするだけで設定を更新できます。
+
+### Step 7｜動作確認
 
 1. リポジトリの **Actions タブ** を開く
 2. **「Daily Paper Search」** を選択
@@ -96,26 +121,51 @@ your-repo/
 
 ---
 
+## メンバー設定（docs/members.json）
+
+各メンバーの名前・Slack ID・キーワードを設定します：
+
+```json
+[
+  {
+    "name": "田中",
+    "slack_id": "U01XXXXXXX",
+    "keywords": ["spatial navigation", "place cell"]
+  },
+  {
+    "name": "鈴木",
+    "slack_id": "U02XXXXXXX",
+    "keywords": ["working memory", "prefrontal cortex"]
+  }
+]
+```
+
+**Slack IDの調べ方：** Slackでプロフィールを開く → 「…」→「メンバーIDをコピー」
+
+ローテーションは日付ベースで自動的に決まります（3人なら3日周期）。
+
+---
+
 ## カスタマイズ
 
-`search_and_notify.py` の設定欄を編集するだけです：
+`search_and_notify.py` の設定欄を編集します：
 
 ```python
-# ── 設定 ──────────────────────────────────────
-KEYWORDS      = ["spatial navigation"]   # ← キーワードを追加・変更
-MAX_RESULTS   = 5                        # ← 1ソースあたりの最大件数
-DAYS_BACK     = 1                        # ← 何日前までの論文を対象にするか
+KEYWORDS      = ["spatial navigation"]   # デフォルトキーワード（members.jsonで上書き）
+MAX_RESULTS   = 10                       # 検索する最大件数
+DAYS_BACK     = 365                      # 何日前までの論文を対象にするか
+
+TARGET_JOURNALS = [
+    "Nature", "Science", "Cell",
+    "Nature Neuroscience", "Nature Human Behaviour", "Nature Communications",
+    "Neuron", "Current Biology", "eLife",
+    "PNAS", "Journal of Neuroscience",
+    "Cell Reports", "Science Advances",
+    "Nature Methods", "Nature Aging", "Nature Biotechnology",
+]
 ```
 
-### キーワードを増やす例
-
-```python
-KEYWORDS = ["spatial navigation", "hippocampus", "place cell", "cognitive map"]
-```
-
-### 投稿時間を変える
-
-`daily_paper_search.yml` の `cron` 式を変更します（UTC基準）：
+投稿時間を変えたい場合は `daily_paper_search.yml` の cron 式を変更：
 
 ```yaml
 - cron: "0 0 * * *"    # UTC 00:00 = JST 09:00（デフォルト）
@@ -140,7 +190,8 @@ KEYWORDS = ["spatial navigation", "hippocampus", "place cell", "cognitive map"]
 
 | 症状 | 原因 | 対処 |
 |---|---|---|
-| Actions タブにワークフローが出ない | YAMLのパスが違う | `.github/workflows/` に置く |
+| Actionsタブにワークフローが出ない | YAMLのパスが違う | `.github/workflows/` に置く |
 | `credit balance is too low` | APIクレジット不足 | console.anthropic.com で購入 |
-| `本日は新着論文なし` | 該当論文がなかった | 正常動作。キーワードを見直す |
-| bioRxiv タイムアウト | bioRxiv API が不安定 | 一時的なもの。翌日は復旧することが多い |
+| `本日は新着論文なし` | 該当論文がなかった | 正常動作。`DAYS_BACK` を増やすか `TARGET_JOURNALS` を広げる |
+| bioRxiv タイムアウト | bioRxiv API が不安定 | 一時的なもの。PubMedの結果は投稿される |
+| seen_papers.jsonのコミットが失敗 | 書き込み権限がない | Settings → Actions → General → Read and write permissions に変更 |
