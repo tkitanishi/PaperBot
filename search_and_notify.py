@@ -197,16 +197,24 @@ def fetch_biorxiv(keywords, days_back, max_results):
 
 
 def get_citation_count(pmid):
-    """Altmetric APIでスコアを取得する（失敗時は0）"""
+    """Semantic Scholar APIで引用数を取得する（失敗時は0, 0）"""
+    import time
     try:
-        url = f"https://api.altmetric.com/v1/pmid/{pmid}"
+        url = f"https://api.semanticscholar.org/graph/v1/paper/PMID:{pmid}?fields=citationCount,influentialCitationCount"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
-        score = data.get("score", 0)
-        return float(score)
-    except Exception:
-        return 0.0
+        citations    = data.get("citationCount", 0) or 0
+        influential  = data.get("influentialCitationCount", 0) or 0
+        time.sleep(0.3)
+        return int(citations), int(influential)
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            print(f"  Semantic Scholar HTTPエラー {e.code} (pmid={pmid})")
+        return 0, 0
+    except Exception as e:
+        print(f"  Semantic Scholar エラー: {e} (pmid={pmid})")
+        return 0, 0
 
 
 def fetch_impact_papers(seen):
@@ -339,7 +347,7 @@ def main():
     print(f"既出論文: {len(seen)} 件")
 
     # ── 日曜モード: Altmetric 注目論文 ──────────────────
-    if True: #is_sunday():
+    if Ture:#is_sunday():
         print("🌟 日曜インパクトモード")
         papers = fetch_impact_papers(seen)
 
