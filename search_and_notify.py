@@ -1,12 +1,12 @@
 """
 論文検索 & Slack通知スクリプト
-- PubMed / bioRxiv から論文を検索
-- 既出論文をスキップ（seen_papers.json で管理）
-- Claude Haiku で日本語要約
-- Slack に投稿
+- PubMed / bioRxiv から10本検索
+- Claude Haiku で最重要論文を1本選択
+- 選んだ論文を日本語要約して Slack に投稿
 """
 
 import os
+import re
 import json
 import urllib.request
 import urllib.parse
@@ -20,13 +20,12 @@ MAX_RESULTS    = 10
 DAYS_BACK      = 1
 SLACK_WEBHOOK  = os.environ["SLACK_WEBHOOK_URL"]
 ANTHROPIC_KEY  = os.environ["ANTHROPIC_API_KEY"]
-SEEN_FILE      = "seen_papers.json"   # 既出論文IDを保存するファイル
-MAX_SEEN       = 2000                 # 保存する最大件数（古いものは自動削除）
+SEEN_FILE      = "seen_papers.json"
+MAX_SEEN       = 2000
 # ────────────────────────────────────────────────────────
 
 
 def load_seen():
-    """既出論文IDのセットを読み込む"""
     try:
         with open(SEEN_FILE, "r") as f:
             return set(json.load(f))
@@ -34,8 +33,7 @@ def load_seen():
         return set()
 
 
-def save_seen(seen: set):
-    """既出論文IDを保存する（古いものは削除）"""
+def save_seen(seen):
     seen_list = list(seen)
     if len(seen_list) > MAX_SEEN:
         seen_list = seen_list[-MAX_SEEN:]
@@ -68,10 +66,14 @@ def fetch_pubmed(keywords, days_back, max_results):
 
     papers = []
     for article in root.findall(".//PubmedArticle"):
-        title_el = article.find(".//ArticleTitle")
-        pmid_el  = article.find(".//PMID")
-        abs_el   = article.find(".//AbstractText")
-        authors  = article.findall(".//Author")
+        title_el   = article.find(".//ArticleTitle")
+        pmid_el    = article.find(".//PMID")
+        abs_el     = article.find(".//AbstractText")
+        journal_el = article.find(".//Journal/Title")
+        year_el    = article.find(".//PubDate/Year")
+        if year_el is None:
+            year_el = article.find(".//PubDate/MedlineDate")
+        authors = article.findall(".//Author")
         author_names = []
         for a in authors[:3]:
             last = a.find("LastName")
@@ -80,26 +82,14 @@ def fetch_pubmed(keywords, days_back, max_results):
         author_str = ", ".join(author_names)
         if len(authors) > 3:
             author_str += " et al."
-
         pmid = pmid_el.text if pmid_el is not None else ""
-
-        # ジャーナル名
-        journal_el = article.find(".//Journal/Title")
-        journal = journal_el.text if journal_el is not None else ""
-
-        # 発表年
-        year_el = article.find(".//PubDate/Year")
-        if year_el is None:
-            year_el = article.find(".//PubDate/MedlineDate")
-        year = year_el.text[:4] if year_el is not None else ""
-
         papers.append({
             "id":       f"pubmed_{pmid}",
-            "title":    title_el.text if title_el is not None else "No title",
+            "title":    title_el.text  if title_el   is not None else "No title",
             "authors":  author_str,
-            "journal":  journal,
-            "year":     year,
-            "abstract": abs_el.text   if abs_el   is not None else "",
+            "journal":  journal_el.text if journal_el is not None else "",
+            "year":     (year_el.text[:4] if year_el is not None else ""),
+            "abstract": abs_el.text    if abs_el     is not None else "",
             "url":      f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
             "source":   "PubMed",
         })
@@ -122,15 +112,14 @@ def fetch_biorxiv(keywords, days_back, max_results):
     for item in data.get("collection", []):
         text = (item.get("title", "") + " " + item.get("abstract", "")).lower()
         if any(kw.lower() in text for kw in keywords):
-            doi = item.get("doi", "")
+            doi  = item.get("doi", "")
             date = item.get("date", "")
-            year = date[:4] if date else ""
             papers.append({
                 "id":       f"biorxiv_{doi}",
                 "title":    item.get("title", "No title"),
                 "authors":  item.get("authors", ""),
                 "journal":  "bioRxiv (preprint)",
-                "year":     year,
+                "year":     date[:4] if date else "",
                 "abstract": item.get("abstract", ""),
                 "url":      f"https://www.biorxiv.org/content/{doi}",
                 "source":   "bioRxiv",
@@ -138,31 +127,12 @@ def fetch_biorxiv(keywords, days_back, max_results):
     return papers[:max_results]
 
 
-def select_best_paper(papers, keywords):
-    """Claude に最も重要な論文を1本選ばせる"""
-    paper_list = "
-".join(
-        f"{i+1}. タイトル: {p['title']}
-   アブストラクト: {p['abstract'][:300]}..."
-        for i, p in enumerate(papers)
-    )
-
+def call_claude(prompt, max_tokens=50):
     payload = json.dumps({
         "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 50,
-        "messages": [{
-            "role": "user",
-            "content": (
-                f"以下の論文リストから、'{' / '.join(keywords)}' の研究者にとって"
-                "最も重要・新規性が高い論文を1本選んでください。"
-                "番号だけを答えてください（例: 3）。
-
-"
-                f"{paper_list}"
-            ),
-        }],
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": prompt}],
     }).encode()
-
     req = urllib.request.Request(
         "https://api.anthropic.com/v1/messages",
         data=payload,
@@ -172,16 +142,33 @@ def select_best_paper(papers, keywords):
             "anthropic-version": "2023-06-01",
         },
     )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        result = json.loads(resp.read())
+    return result["content"][0]["text"].strip()
+
+
+def select_best_paper(papers, keywords):
+    """最も重要な論文を1本選ぶ"""
+    lines = []
+    for i, p in enumerate(papers):
+        snippet = p["abstract"][:300].replace("\n", " ")
+        lines.append(f"{i+1}. {p['title']} / {snippet}...")
+    paper_list = "\n".join(lines)
+    keyword_str = " / ".join(keywords)
+
+    prompt = (
+        f"以下の論文リストから、'{keyword_str}' の研究者にとって"
+        "最も重要・新規性が高い論文を1本選んでください。"
+        "番号だけを答えてください（例: 3）。\n\n"
+        + paper_list
+    )
+
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json.loads(resp.read())
-        answer = result["content"][0]["text"].strip()
-        # 数字だけ抽出
-        import re
-        m = re.search(r'\d+', answer)
+        answer = call_claude(prompt, max_tokens=10)
+        m = re.search(r"\d+", answer)
         idx = int(m.group()) - 1 if m else 0
         idx = max(0, min(idx, len(papers) - 1))
-        print(f"Claude が選んだ論文: {idx+1}番 「{papers[idx]['title'][:60]}...」")
+        print(f"選ばれた論文: {idx+1}番 「{papers[idx]['title'][:60]}」")
         return papers[idx]
     except Exception as e:
         print(f"選択エラー: {e} → 1番を使用")
@@ -189,40 +176,18 @@ def select_best_paper(papers, keywords):
 
 
 def summarize_with_claude(title, abstract):
+    """日本語要約"""
     if not abstract:
         return "（アブストラクトなし）"
-
-    payload = json.dumps({
-        "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 300,
-        "messages": [{
-            "role": "user",
-            "content": (
-                "以下の論文を、空間ナビゲーション・認知地図の研究者向けに"
-                "日本語で3文以内で要約してください。専門用語はそのまま使ってください。\n\n"
-                f"タイトル: {title}\n\nアブストラクト: {abstract}"
-            ),
-        }],
-    }).encode()
-
-    req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=payload,
-        headers={
-            "Content-Type":      "application/json",
-            "x-api-key":         ANTHROPIC_KEY,
-            "anthropic-version": "2023-06-01",
-        },
+    prompt = (
+        "以下の論文を、空間ナビゲーション・認知地図の研究者向けに"
+        "日本語で3文以内で要約してください。専門用語はそのまま使ってください。\n\n"
+        f"タイトル: {title}\n\nアブストラクト: {abstract}"
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json.loads(resp.read())
-        return result["content"][0]["text"].strip()
-    except urllib.error.HTTPError as e:
-        print(f"Claude API エラー {e.code}: {e.read().decode()}")
-        return "（要約失敗）"
+        return call_claude(prompt, max_tokens=300)
     except Exception as e:
-        print(f"Claude API エラー: {e}")
+        print(f"要約エラー: {e}")
         return "（要約失敗）"
 
 
@@ -232,7 +197,7 @@ def post_to_slack(papers):
 
     blocks = [
         {"type": "header", "text": {"type": "plain_text", "text": f"📄 論文アップデート {today}"}},
-        {"type": "section", "text": {"type": "mrkdwn", "text": f"キーワード: *{keyword_str}*  |  {len(papers)} 件"}},
+        {"type": "section", "text": {"type": "mrkdwn", "text": f"キーワード: *{keyword_str}*"}},
         {"type": "divider"},
     ]
 
@@ -263,7 +228,7 @@ def post_to_slack(papers):
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
         resp.read()
-    print(f"Slack に {len(papers)} 件投稿しました")
+    print(f"Slack に投稿しました")
 
 
 def main():
@@ -274,7 +239,6 @@ def main():
     candidates = fetch_pubmed(KEYWORDS, DAYS_BACK, MAX_RESULTS)
     candidates += fetch_biorxiv(KEYWORDS, DAYS_BACK, MAX_RESULTS)
 
-    # 既出をフィルタ
     new_papers = [p for p in candidates if p["id"] not in seen]
     print(f"新着: {len(new_papers)} 件（既出 {len(candidates) - len(new_papers)} 件をスキップ）")
 
@@ -282,17 +246,15 @@ def main():
         print("本日は新着論文なし")
         return
 
-    # 最重要論文を1本選ぶ
     print(f"{len(new_papers)} 件から最重要論文を選択中...")
     best = select_best_paper(new_papers, KEYWORDS)
 
-    # 選んだ論文を要約
     print("要約中...")
     best["summary"] = summarize_with_claude(best["title"], best["abstract"])
 
     post_to_slack([best])
 
-    # 投稿済みIDを保存（選ばれなかった論文も既出扱いにする）
+    # 選ばれなかった論文も含めて全て既出として記録
     seen.update(p["id"] for p in new_papers)
     save_seen(seen)
     print(f"seen_papers.json を更新しました（合計 {len(seen)} 件）")
