@@ -1,24 +1,66 @@
 [
   {
-    "name": "Iida",
+    "name": "飯田",
     "slack_id": "U0527FXRFTK",
     "keywords": [
-      "kainate receptor anxiety"
+      "kainate recepotr anxiety"
     ]
   },
-{
-  "name": "Aimi",
-  "slack_id": "U051CJ10ZV3",
-  "keywords": [
-    "subiculum"
-  ]
-},
   {
-    "name": "Wang",
-    "slack_id": "U0410M9E1BN",
+    "name": "会見",
+    "slack_id": "U051CJ10ZV3",
     "keywords": [
-      "hippocampus",
-      "memory consolidation"
+      "subiculum"
+    ]
+  },
+  {
+    "name": "王",
+    "slack_id": "U051K44SS1K",
+    "keywords": [
+      "entorhinal cortex",
+      "grid cells"
+    ]
+  },
+  {
+    "name": "出水",
+    "slack_id": "U04MW1U65NV",
+    "keywords": [
+      "representational drift"
+    ]
+  },
+  {
+    "name": "遠藤",
+    "slack_id": "U06RQRQP72T",
+    "keywords": [
+      "head direction cells"
+    ]
+  },
+  {
+    "name": "三浦",
+    "slack_id": "U06S2F9LTCM",
+    "keywords": [
+      "visual to spatial transformation"
+    ]
+  },
+  {
+    "name": "岸本",
+    "slack_id": "U046RJLDM5H",
+    "keywords": [
+      "optogenetics"
+    ]
+  },
+  {
+    "name": "呉",
+    "slack_id": "U08KZE8U9PY",
+    "keywords": [
+      "nucleus of the solitary tract"
+    ]
+  },
+  {
+    "name": "澁谷",
+    "slack_id": "U06S98VEQRM",
+    "keywords": [
+      "Alzheimer"
     ]
   }
 ]
