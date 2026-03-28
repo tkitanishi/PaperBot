@@ -47,15 +47,8 @@ def load_members():
 
 
 def select_member(members):
-    """日曜日を除いた日数でローテーションする"""
-    base = datetime(2025, 1, 1)
-    today = datetime.utcnow()
-    # 基準日から今日までの日数のうち、日曜日（weekday==6）を除いてカウント
-    non_sunday_count = sum(
-        1 for i in range((today - base).days)
-        if (base + timedelta(days=i)).weekday() != 6
-    )
-    member = members[non_sunday_count % len(members)]
+    day_index = (datetime.utcnow() - datetime(2025, 1, 1)).days
+    member = members[day_index % len(members)]
     print(f"本日の担当: {member['name']} (キーワード: {', '.join(member['keywords'])})")
     return member
 
@@ -78,6 +71,9 @@ def save_seen(seen):
 
 def fetch_pubmed(keywords, days_back, max_results):
     """キーワード付きPubMed検索（平日モード）"""
+    if not keywords:
+        print("キーワードが設定されていません。スキップします。")
+        return []
     since = (datetime.utcnow() - timedelta(days=days_back)).strftime("%Y/%m/%d")
     kw_query      = " AND ".join(f'"{kw}"' for kw in keywords)
     journal_query = " OR ".join(f'"{j}"[Journal]' for j in TARGET_JOURNALS)
@@ -153,7 +149,7 @@ def _fetch_pubmed_details(ids):
             "title":    title_el.text    if title_el   is not None else "No title",
             "authors":  author_str,
             "journal":  journal_el.text  if journal_el is not None else "",
-            "year":     year_el.text[:4] if year_el    is not None else "",
+            "year":     (year_el.text or "")[:4] if year_el is not None else "",
             "abstract": abs_el.text      if abs_el     is not None else "",
             "url":      f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
             "source":   "PubMed",
@@ -372,7 +368,7 @@ def main():
             print("本日は新着論文なし")
             keyword_str = ", ".join(keywords)
             post_no_papers_to_slack(
-                f"📭 {today} 新着論文なし（担当: <@{member['slack_id']}> / キーワード: {keyword_str}）"
+                f"📭 {today} 新着論文なし（担当: {f'<@{member["slack_id"]}>' if member.get('slack_id') else member['name']} / キーワード: {keyword_str}）"
             )
             return
 
@@ -387,7 +383,7 @@ def main():
 
         post_to_slack(
             f"📄 論文アップデート {today}",
-            f"For {member['name']} <@{member['slack_id']}>　Keywords: {' / '.join(keywords)}",
+            f"For {member['name']} {f'<@{member["slack_id"]}>' if member.get('slack_id') else ''}　Keywords: {' / '.join(keywords)}",
             best,
         )
 
