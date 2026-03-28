@@ -19,7 +19,7 @@ MAX_RESULTS   = 5
 DAYS_BACK     = 1
 SLACK_WEBHOOK = os.environ["SLACK_WEBHOOK_URL"]
 HF_KEY        = os.environ["HF_API_KEY"]
-HF_MODEL      = "mistralai/Mistral-7B-Instruct-v0.3"
+HF_MODEL      = "mistralai/Mistral-7B-Instruct-v0.2"
 # ────────────────────────────────────────────────────────
 
 
