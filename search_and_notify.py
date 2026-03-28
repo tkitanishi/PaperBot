@@ -325,7 +325,7 @@ def main():
     print(f"既出論文: {len(seen)} 件")
 
     # ── 日曜モード: Altmetric 注目論文 ──────────────────
-    if True#is_sunday():
+    if True: #is_sunday():
         print("🌟 日曜インパクトモード")
         papers = fetch_impact_papers(seen)
 
