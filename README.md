@@ -7,7 +7,7 @@
 ## 動作イメージ
 
 ```
-毎朝8時（日本時間）
+毎朝9時（日本時間）
     ↓ GitHub Actions が自動起動
 今日の担当メンバーを日替わりで選択
     ↓
@@ -123,7 +123,23 @@ docs/members.json
 
 ## メンバー設定（docs/members.json）
 
-各メンバーの名前・Slack ID・キーワードを設定します：
+各メンバーの名前・Slack ID・キーワードを設定します。
+
+### 方法A：キーワード設定ページを使う（推奨）
+
+GitHub Pages を有効化すると `https://ユーザー名.github.io/リポジトリ名/` にアクセスできます。
+
+![設定ページのイメージ](https://via.placeholder.com/600x200?text=Keyword+Editor)
+
+1. ページ上でメンバーの追加・削除、キーワードの編集ができる
+2. 編集が終わったら **「コピー」** ボタンを押す
+3. GitHubの `docs/members.json` を開いて全選択 → 貼り付け → **Commit changes**
+
+JSONの書き方を知らなくてもGUIで操作できるのでメンバー全員が自分でキーワードを更新できます。
+
+### 方法B：JSONを直接編集する
+
+GitHubで `docs/members.json` を直接編集します：
 
 ```json
 [
