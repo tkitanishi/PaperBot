@@ -198,7 +198,7 @@ IMPACT_FETCH      = 20    # 日曜モードでAltmetricスコアを取得する�
 
 TARGET_JOURNALS = [
     "Nature", "Science", "Cell",
-    "Nature Neuroscience", "Nature Human Behaviour", "Nature Communications",
+    "Nature Neuroscience", "Nature Human Behaviour", "Nature Medicine", "Nature Communications", 
     "Neuron", "Current Biology", "eLife",
     "PNAS", "Journal of Neuroscience",
     "Cell Reports", "Science Advances",
