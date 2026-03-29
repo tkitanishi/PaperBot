@@ -286,7 +286,7 @@ def summarize_with_claude(title, abstract, context):
         return "（アブストラクトなし）"
     prompt = (
         f"以下の論文を、{context}向けに"
-        "日本語で3文以内で要約してください。専門用語はそのまま使ってください。\n\n"
+        "日本語で3文以内で要約してください。専門用語はそのまま使ってください。見出しや前置きは不要です。要約文のみ出力してください。\n\n"
         f"タイトル: {title}\n\nアブストラクト: {abstract}"
     )
     try:
@@ -396,7 +396,7 @@ def main():
         print("要約中...")
         best["summary"] = summarize_with_claude(
             best["title"], best["abstract"],
-            f"'{' / '.join(keywords)}' を研究するニューロサイエンス研究者"
+            f"'{' / '.join(keywords)}' を研究する神経科学の研究者"
         )
 
         post_to_slack(
