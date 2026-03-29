@@ -401,7 +401,7 @@ def main():
 
         post_to_slack(
             "📄 論文アップデート",
-            "For " + member['name'] + " " + (f"<@{member['slack_id']}>" if member.get('slack_id') else "") + "　Keywords: " + ' / '.join(keywords),
+            "For " + (f"<@{member['slack_id']}>" if member.get('slack_id') else "") + "　Keyword: " + ' / '.join(keywords),
             best,
         )
 
