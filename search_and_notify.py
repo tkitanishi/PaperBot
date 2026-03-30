@@ -37,8 +37,8 @@ TARGET_JOURNALS = [
 # ────────────────────────────────────────────────────────
 
 
-def is_sunday():
-    return datetime.utcnow().weekday() == 6
+def is_saturday():
+    return datetime.utcnow().weekday() == 5
 
 
 def load_members():
@@ -52,7 +52,7 @@ def select_member(members):
     today = datetime.utcnow()
     non_sunday_count = sum(
         1 for i in range((today - base).days)
-        if (base + timedelta(days=i)).weekday() != 6
+        if (base + timedelta(days=i)).weekday() != 5
     )
     member = members[non_sunday_count % len(members)]
     print(f"本日の担当: {member['name']} (キーワード: {', '.join(member['keywords'])})")
@@ -201,15 +201,12 @@ def get_citation_count(pmid):
     import time
     try:
         url = f"https://api.semanticscholar.org/graph/v1/paper/PMID:{pmid}?fields=citationCount,influentialCitationCount"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        if SEMANTIC_SCHOLAR_KEY:
-            headers["x-api-key"] = SEMANTIC_SCHOLAR_KEY
-        req = urllib.request.Request(url, headers=headers)
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
         citations    = data.get("citationCount", 0) or 0
         influential  = data.get("influentialCitationCount", 0) or 0
-        time.sleep(0.1 if SEMANTIC_SCHOLAR_KEY else 1.5)
+        time.sleep(0.3)
         return int(citations), int(influential)
     except urllib.error.HTTPError as e:
         if e.code != 404:
@@ -350,7 +347,7 @@ def main():
     print(f"既出論文: {len(seen)} 件")
 
     # ── 日曜モード: 引用数注目論文 ──────────────────
-    if is_sunday():
+    if is_saturday():
         print("🌟 日曜インパクトモード")
         papers = fetch_impact_papers(seen)
 
@@ -366,10 +363,9 @@ def main():
             "神経科学・生命科学の研究者"
         )
 
-        citation_str = f"引用 {best['citation_count']} 件" if best.get("citation_count") else "今週の注目論文"
+        citation_str = f"引用 {best['citation_count']} 件" if best.get("citation_count") else ""
         post_to_slack(
             "🌟 今週の注目論文",
-            citation_str,
             best,
         )
 
