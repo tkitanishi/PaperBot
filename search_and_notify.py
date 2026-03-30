@@ -22,6 +22,7 @@ DAYS_BACK_IMPACT   = 30     # 日曜モード: 過去1ヶ月
 IMPACT_FETCH       = 20     # 日曜モード: 引用数を取得する候補数
 SLACK_WEBHOOK      = os.environ["SLACK_WEBHOOK_URL"]
 ANTHROPIC_KEY      = os.environ["ANTHROPIC_API_KEY"]
+SEMANTIC_SCHOLAR_KEY = os.environ.get("SEMANTIC_SCHOLAR_API_KEY", "")  # 任意（なくても動作する）
 MEMBERS_FILE       = "docs/members.json"
 SEEN_FILE          = "seen_papers.json"
 MAX_SEEN           = 5000
@@ -206,7 +207,7 @@ def get_citation_count(pmid):
             data = json.loads(resp.read())
         citations    = data.get("citationCount", 0) or 0
         influential  = data.get("influentialCitationCount", 0) or 0
-        time.sleep(0.3)
+        time.sleep(0.1 if SEMANTIC_SCHOLAR_KEY else 1.5)
         return int(citations), int(influential)
     except urllib.error.HTTPError as e:
         if e.code != 404:
