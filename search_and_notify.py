@@ -1,7 +1,7 @@
 """
 論文検索 & Slack通知スクリプト
 - 平日: members.json からメンバーを日替わりで選択、キーワード検索
-- 土曜: Altmetric スコアが高い注目論文を紹介
+- 土曜: Semantic Scholar スコアが高い注目論文を紹介
 - Claude Haiku で最重要論文を1本選択・日本語要約
 - Slack に投稿した論文だけ seen_papers.json に記録
 """
