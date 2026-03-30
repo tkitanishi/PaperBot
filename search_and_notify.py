@@ -1,7 +1,7 @@
 """
 論文検索 & Slack通知スクリプト
 - 平日: members.json からメンバーを日替わりで選択、キーワード検索
-- 日曜: Altmetric スコアが高い注目論文を紹介
+- 土曜: Altmetric スコアが高い注目論文を紹介
 - Claude Haiku で最重要論文を1本選択・日本語要約
 - Slack に投稿した論文だけ seen_papers.json に記録
 """
@@ -18,8 +18,8 @@ from datetime import datetime, timedelta
 # ── 設定 ────────────────────────────────────────────────
 MAX_RESULTS        = 10
 DAYS_BACK          = 365
-DAYS_BACK_IMPACT   = 30     # 日曜モード: 過去1ヶ月
-IMPACT_FETCH       = 20     # 日曜モード: 引用数を取得する候補数
+DAYS_BACK_IMPACT   = 30     # 土曜モード: 過去1ヶ月
+IMPACT_FETCH       = 20     # 土曜モード: 引用数を取得する候補数
 SLACK_WEBHOOK      = os.environ["SLACK_WEBHOOK_URL"]
 ANTHROPIC_KEY      = os.environ["ANTHROPIC_API_KEY"]
 SEMANTIC_SCHOLAR_KEY = os.environ.get("SEMANTIC_SCHOLAR_API_KEY", "")  # 任意（なくても動作する）
@@ -48,14 +48,14 @@ def load_members():
 
 
 def select_member(members):
-    """日曜日を除いた日数でローテーションする"""
+    """土曜日を除いた日数でローテーションする"""
     base = datetime(2025, 1, 1)
     today = datetime.utcnow()
-    non_sunday_count = sum(
+    non_saturday_count = sum(
         1 for i in range((today - base).days)
         if (base + timedelta(days=i)).weekday() != 5
     )
-    member = members[non_sunday_count % len(members)]
+    member = members[non_saturday_count % len(members)]
     print(f"本日の担当: {member['name']} (キーワード: {', '.join(member['keywords'])})")
     return member
 
@@ -102,7 +102,7 @@ def fetch_pubmed(keywords, days_back, max_results):
 
 
 def fetch_pubmed_impact(days_back, max_results):
-    """キーワードなし・ターゲットジャーナル新着（日曜モード）"""
+    """キーワードなし・ターゲットジャーナル新着（土曜モード）"""
     since = (datetime.utcnow() - timedelta(days=days_back)).strftime("%Y/%m/%d")
     journal_query = " OR ".join(f'"{j}"[Journal]' for j in TARGET_JOURNALS)
     date_query    = f'"{since}"[Date - Publication] : "3000"[Date - Publication]'
@@ -222,7 +222,7 @@ def get_citation_count(pmid):
 
 
 def fetch_impact_papers(seen):
-    """日曜モード: 引用数が多い注目論文を取得する"""
+    """土曜モード: 引用数が多い注目論文を取得する"""
     candidates = fetch_pubmed_impact(DAYS_BACK_IMPACT, IMPACT_FETCH)
     new_papers  = [p for p in candidates if p["id"] not in seen]
 
@@ -350,9 +350,9 @@ def main():
     seen  = load_seen()
     print(f"既出論文: {len(seen)} 件")
 
-    # ── 日曜モード: 引用数注目論文 ──────────────────
+    # ── 土曜モード: 引用数注目論文 ──────────────────
     if is_saturday():
-        print("🌟 日曜インパクトモード")
+        print("🌟 土曜インパクトモード")
         papers = fetch_impact_papers(seen)
 
         if not papers:
@@ -367,9 +367,9 @@ def main():
             "神経科学・生命科学の研究者"
         )
 
-        citation_str = f"引用 {best['citation_count']} 件" if best.get("citation_count") else ""
         post_to_slack(
             "🌟 今週の注目論文",
+            "今週の注目論文をお届けします。",
             best,
         )
 
