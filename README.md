@@ -153,7 +153,7 @@ docs/members.json
 
 ### 方法A：キーワード設定ページを使う（推奨）
 
-GitHub Pages を有効化すると `https://ユーザー名.github.io/リポジトリ名/` にアクセスできます。
+GitHub Pages を有効化すると https://tkitanishi.github.io/PaperBot/ にアクセスできます。
 
 1. ページ上でメンバーの追加・削除、キーワードの編集ができる
 2. 編集が終わったら **「コピー」** ボタンを押す
