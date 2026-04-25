@@ -61,5 +61,19 @@
     "keywords": [
       "Alzheimer"
     ]
+  },
+  {
+    "name": "中ノ瀬",
+    "slack_id": "U0AQLR0JR6D",
+    "keywords": [
+      "social interaction"
+    ]
+  },
+  {
+    "name": "宮本",
+    "slack_id": "U069JGLUQ5N",
+    "keywords": [
+      "path inegration"
+    ]
   }
 ]
